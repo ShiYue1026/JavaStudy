@@ -545,6 +545,7 @@ public static ExecutorService newSingleThreadExecutor() {
 
 **shutdown()**
 
+- 线程池变为SHUTDOWN状态
 - 线程池不能在接收新的任务
 - 已经提交的任务（包括当前队列中的任务）仍然会执行，都执行完后线程池才真正关闭
 - 正在执行的任务继续运行，不会被中断
@@ -553,10 +554,12 @@ public static ExecutorService newSingleThreadExecutor() {
 
 **shutdownNow()**
 
+- 线程池变为STOP状态
 - 线程池不能在接受新任务
 - 当前队列中的会被直接返回，不执行
 - 正在执行的任务会被`interrupt()`中断
 
+最终线程池都会变成TERMINATED状态
 
 
 

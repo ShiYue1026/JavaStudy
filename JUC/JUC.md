@@ -317,7 +317,7 @@ synchronized 升级为重量级锁时，依赖于操作系统的互斥量（mute
 
 **3. 不能解决指令交错**
 
-![image-20250128213711292](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250128213711292.png)
+![image-20250128213711292](https://github.com/user-attachments/assets/21d90c48-51be-4861-b0d3-3ff428950355)
 
 
 
@@ -444,7 +444,8 @@ private static int nextHashCode() {
 
 ThreadPoolExecutor使用int的高3位来表示线程池状态，低29位表示线程数量
 
-![image-20250129105817900](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250129105817900.png)
+
+![image-20250129105817900](https://github.com/user-attachments/assets/34d583d7-0734-44de-86ee-4a79b75201c0)
 
 
 
@@ -468,7 +469,8 @@ ThreadPoolExecutor使用int的高3位来表示线程池状态，低29位表示�
 
 ## 线程池的拒绝策略有哪些
 
-![image-20250129111236731](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250129111236731.png)
+![image-20250129111236731](https://github.com/user-attachments/assets/e52ef73d-51d0-4978-b47e-d69cb0bdb97a)
+
 
 
 

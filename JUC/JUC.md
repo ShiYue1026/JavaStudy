@@ -175,9 +175,17 @@ synchronized是**基于Monitor实现**的。
 
 实例对象结构里有对象头，对象头里面有一块结构叫 Mark Word，Mark Word 指针指向了**Monitor**。
 
-**会牵扯到操作系统层面**
+![Java Montior机制](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-33.png)
 
-synchronized 升级为重量级锁时，依赖于操作系统的互斥量（mutex）来实现，mutex 用于保证任何给定时间内，只有一个线程可以执行某一段特定的代码段
+**EntrySet**指的是 等待获取锁的线程队列。当线程尝试获取锁但失败时，它们会进入EntrySet进行排队，等待锁的释放。
+
+**WaitSet**指的是 线程调用 `Object.wait()` 之后进入的等待队列。这些线程正在等待某个线程调用 `notify()` 或 `notifyAll()` 唤醒它们。
+
+
+
+## Synchronized会牵扯到操作系统层面吗
+
+Synchronized 升级为重量级锁时，依赖于操作系统的互斥量（mutex）来实现，mutex 用于保证任何给定时间内，只有一个线程可以执行某一段特定的代码段
 
 
 
@@ -271,33 +279,130 @@ synchronized 升级为重量级锁时，依赖于操作系统的互斥量（mute
 
 **可中断**（Synchronized不行）
 
-​	`lock.lockInterruptibly()`
-
-​	如果没有竞争此方法就获取lock对象锁
-
-​	如果有竞争就进入阻塞队列，可以被其它线程用interrupt方法打断
+	`lock.lockInterruptibly()`
+	
+	如果没有竞争此方法就获取lock对象锁
+	
+	如果有竞争就进入阻塞队列，可以被其它线程用interrupt方法打断
 
 **可以设置超时时间**（Synchronized不行）
 
-​	`lock.tryLock(1, TimeUnit.SECONDS)`
-
-​	返回值是boolean类型，获取锁成功为true
+	`lock.tryLock(1, TimeUnit.SECONDS)`
+	
+	返回值是boolean类型，获取锁成功为true
 
 **可以设置公平锁**（Synchronized不行）
 
 **支持多个条件变量**（Synchronized不行）
 
-​	Condition A = ReentrantLock.newCondition();
-
-​	A.await();
-
-​	A.signal();
+	Condition A = ReentrantLock.newCondition();
+	
+	A.await();
+	
+	A.signal();
 
 **与synchronized一样，都支持可重入**
 
 
 
+## ReentrantLock和Synchronized的区别
+
+![三分恶面渣逆袭：synchronized和ReentrantLock的区别](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-38.png)
+
+
+
+## AQS了解多少
+
+**AQS(Abstract Queue Synchronizer)**的思想是，如果被请求的共享资源空闲，则当前线程能够成功获取资源；否则，它将进入一个等待队列，当有其他线程释放资源时，系统会挑选等待队列中的一个线程，赋予其资源。
+
+
+
+![三分恶面渣逆袭：AQS抽象队列同步器](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-39.png)
+
+![三分恶面渣逆袭：ReentrantLock 非公平锁加锁流程简图](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-42.png)
+
+## CAS了解多少
+
+CAS是一种乐观锁的实现方式，全称为Compare and Swap，是一种无锁的原子操作。
+
+CAS 是乐观锁，线程执行的时候不会加锁，它会假设此时没有冲突，然后完成某项操作；如果因为冲突失败了就重试，直到成功为止。
+
+
+
+## CAS怎么保证数据原子性
+
+为了保证CAS的原子性，CPU 提供了两种实现方式
+
+**1. 总线锁定**
+
+- 通过锁定 CPU 的总线，禁止其他 CPU 或设备访问内存。
+
+**2. 缓存锁定（优先）**
+
+- 当多个 CPU 操作同一块内存地址时，如果该内存地址已经被缓存到某个 CPU 的缓存中，缓存锁定机制会锁定该缓存行，防止其他 CPU 对这块内存进行修改。
+- MESI协议
+
+
+
+## CAS有什么问题？如何解决
+
+![三分恶面渣逆袭：CAS三大问题](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-44.png)
+
+**ABA问题**
+
+如果一个位置的值原来是 A，后来被改为 B，再后来又被改回 A，那么进行 CAS 操作的线程将无法知晓该位置的值在此期间已经被修改过。
+
+可以使用版本号/时间戳的方式来解决 ABA 问题。
+
+比如说，每次变量更新时，不仅更新变量的值，还更新一个版本号。CAS 操作时不仅要求值匹配，还要求版本号匹配。
+
+
+
+**循环性能开销**
+
+自旋 CAS，如果一直循环执行，一直不成功，会给 CPU 带来非常大的执行开销。
+
+> 怎么解决循环性能开销问题？
+
+在 Java 中，很多使用自旋 CAS 的地方，会有一个自旋次数的限制，超过一定次数，就停止自旋。
+
+
+
+**只能保证一个变量的原子操作**
+
+CAS 保证的是对一个变量执行操作的原子性，如果对多个变量操作时，CAS 目前无法直接保证操作的原子性的。
+
+```java
+class Account {
+    AtomicInteger balance1 = new AtomicInteger(100);
+    AtomicInteger balance2 = new AtomicInteger(200);
+
+    void transfer(int amount) {
+        // 🚨 不是原子操作！两个 CAS 之间可能被其他线程打断
+        balance1.getAndAdd(-amount);  // 从账户 1 扣钱
+        
+        //在两个变量的CAS之间另一个线程读，此时账户1扣的钱还没加到账户2中 
+        
+        balance2.getAndAdd(amount);   // 向账户 2 加钱
+    }
+}
+
+```
+
+
+
+> 怎么解决只能保证一个变量的原子操作问题？
+
+- 可以考虑改用锁来保证操作的原子性
+- 可以考虑合并多个变量，将多个变量封装成一个对象，通过 AtomicReference 来保证原子性。
+
+
+
+
+
 ## volatile原理
+
+![三分恶面渣逆袭：volatile写插入内存屏障后生成的指令序列示意图](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-28.png)
 
 **1. 如何保证可见性**
 
@@ -310,7 +415,7 @@ synchronized 升级为重量级锁时，依赖于操作系统的互斥量（mute
 
 **2. 如何保证有序性**
 
-- 写屏障会确保指令重排序时，不会将写屏障之前饿代码排在写屏障之后
+- 写屏障会确保指令重排序时，不会将写屏障之前的代码排在写屏障之后
 - 读屏障会确保指令重排序时，不会将读屏障之后的代码排在读屏障之前
 
 
@@ -318,6 +423,12 @@ synchronized 升级为重量级锁时，依赖于操作系统的互斥量（mute
 **3. 不能解决指令交错**
 
 ![image-20250128213711292](https://github.com/user-attachments/assets/21d90c48-51be-4861-b0d3-3ff428950355)
+
+```java
+private volatile SomeObject obj = new SomeObject();
+```
+
+​	虽然 volatile确保了 obj 引用的可见性，但对 obj引用的具体对象的操作并不受 volatile保护。如果需要保证引用对象内部状态的线程安全，需要使用其他同步机制（如 synchronized或 ReentrantLock）。
 
 
 
@@ -438,6 +549,72 @@ private static int nextHashCode() {
 
 
 
+## 为什么线程要用自己的内存
+
+![深入浅出 Java 多线程：Java内存模型](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/thread/jmm-f02219aa-e762-4df0-ac08-6f4cceb535c2.jpg)
+
+- 线程需要自己的栈来存储局部变量（比如一个方法中的局部变量，不同线程调用同一方法时，局部变量不能互相干扰）
+- 如果所有线程都直接操作主内存中的共享变量，会引发更多的内存访问竞争，这不仅影响性能，还增加了线程安全问题的复杂度。
+- 现代 CPU 为了优化执行效率，可能会对指令进行乱序执行（指令重排序）。使用本地内存（CPU 缓存和寄存器）可以在不影响最终执行结果的前提下，使得 CPU 有更大的自由度来乱序执行指令，从而提高执行效率。
+
+
+
+## final变量如何保证可见性
+
+Java 内存模型（JMM）规定：
+
+- **普通变量** 在构造对象时，可能**先发布（对象可见），后赋值**，导致其他线程看到的是**未初始化**的值（即重排序问题）。
+
+- **`final` 变量** 由于 JMM 规则，**构造方法执行完成后，`final` 变量的值必须对其他线程可见**，避免了重排序导致的未初始化问题。
+
+
+
+## 什么是指令重排
+
+**1. 编译器优化**
+
+- 编译器会调整指令顺序，以提高指令流水线效率。
+
+**2. CPU 指令乱序执行**
+
+- CPU 可能会调整指令的执行顺序，以提高指令并行度。
+
+**3. 内存系统的重排序**
+
+- 处理器会使用**缓存**和**写缓冲区**，导致内存访问顺序可能与代码执行顺序不同。
+
+
+
+## 指令重排有限制吗？happens-before了解吗？
+
+指令重排也是有一些限制的，有两个规则**happens-before**和**as-if-serial**来约束。
+
+- 如果一个操作 happens-before 另一个操作，那么第一个操作的执行结果将对第二个操作可见，而且第一个操作的执行顺序排在第二个操作之前。
+- 两个操作之间存在 happens-before 关系，并不意味着 Java 平台的具体实现必须要按照 happens-before 关系指定的顺序来执行。如果重排序之后的执行结果，与按 happens-before 关系来执行的结果一致，那么这种重排序并不非法
+
+
+
+![happens-before六大规则](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-23.png)
+
+- **程序顺序规则**：一个线程中的每个操作，happens-before 于该线程中的任意后续操作。
+- **监视器锁规则**：对一个锁的解锁，happens-before 于随后对这个锁的加锁。
+- **volatile 变量规则**：对一个 volatile 域的写，happens-before 于任意后续对这个 volatile 域的读。
+- **传递性**：如果 A happens-before B，且 B happens-before C，那么 A happens-before C。
+- **start()规则**：如果线程 A 执行操作 ThreadB.start()（启动线程 B），那么 A 线程的 ThreadB.start()操作 happens-before 于线程 B 中的任意操作。
+- **join()规则**：如果线程 A 执行操作 ThreadB.join()并成功返回，那么线程 B 中的任意操作 happens-before 于线程 A 从 ThreadB.join()操作成功返回。
+
+
+
+## as-if-serial又是什么？单线程的程序一定是顺序的吗
+
+as-if-serial 语义的意思是：不管怎么重排序（编译器和处理器为了提高并行度），**单线程程序的执行结果不能被改变**。
+
+
+
+
+
+
+
 
 
 ## 线程池状态有哪些
@@ -489,7 +666,7 @@ public static ExecutorService newFixedThreadPool(int nThreads) {
 ```
 
 - 核心线程 = 最大线程数，没有救急线程，因此也无需超时时间
-- 阻塞队列时无界的
+- 阻塞队列是无界的
 
 适合于任务量已知，相对耗时的任务
 
@@ -563,6 +740,18 @@ public static ExecutorService newSingleThreadExecutor() {
 
 
 
+## HashMap有哪些线程安全问题
+
+**JDK7 HashMap并发死链**
+
+因为JDK7中的HashMap扩容时，采用的是头插法，多线程的情况下，一个线程扩容完了后，由于节点链表已经改变，另一个线程再进行操作就可能会产生循环链表，死循环。
+
+
+
+## ConcurrentHashMap的原理
+
+
+
 
 
 
@@ -584,4 +773,3 @@ public static ExecutorService newSingleThreadExecutor() {
 
 
 [Java面渣](https://javabetter.cn/sidebar/sanfene/javathread.html#)
-

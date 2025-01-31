@@ -1,6 +1,4 @@
-# JUC并发编程
-
-
+# JUC基础
 
 ## 创建线程的三种方法
 
@@ -55,7 +53,7 @@ Java中采取共享内存的方式实现线程之间的通信。
 
 
 
-### 启动一个Java程序里面有哪些线程
+## 启动一个Java程序里面有哪些线程
 
 **1. main主线程**：程序开始执行的入口
 
@@ -168,6 +166,8 @@ Java中线程分为两类：**守护线程**、**用户线程**
 - 调用 wait 方法后，线程会进入 WAITING 状态（无限期等待状态），直到有其他线程在同一对象上调用 notify 或 notifyAll，线程才会从 WAITING 状态转变为 RUNNABLE 状态，准备再次获得 CPU 的执行权。
 
 
+
+# 锁
 
 ## Synchronized锁住的是什么
 
@@ -396,7 +396,237 @@ class Account {
 - 可以考虑改用锁来保证操作的原子性
 - 可以考虑合并多个变量，将多个变量封装成一个对象，通过 AtomicReference 来保证原子性。
 
+## 原子操作类有哪些
 
+![原子操作类](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-46.png)
+
+## 原子操作类的原理
+
+**使用CAS实现**
+
+以 AtomicInteger 的添加方法为例：
+
+```java
+    public final int getAndIncrement() {
+        return unsafe.getAndAddInt(this, valueOffset, 1);
+    }
+```
+
+```java
+public final int getAndAddInt(Object var1, long var2, int var4) {
+    int var5;
+    do {
+        var5 = this.getIntVolatile(var1, var2);
+    } while(!this.compareAndSwapInt(var1, var2, var5, var5 + var4));
+
+    return var5;
+}
+```
+
+如果 `var1` 的 `var2` 偏移地址处的值 **仍然等于 `var5`**：
+
+- ✅ **更新为 `var5 + var4`**（加 `var4`）。
+
+否则：
+
+- ❌ **更新失败（说明其他线程修改了该值），重新读取并重试**。
+
+
+
+## 死锁产生的条件
+
+死锁产生四条件
+
+**1. 互斥条件**：线程不能被多的线程共享
+
+**2. 持有并等待条件**：一个线程至少已经持有一个资源，且正在等待额外的资源
+
+**3. 不可剥夺条件**：资源不能被强制从一个线程中抢占过来
+
+**4. 循环等待条件**：等待关系中产生环路
+
+
+
+## 如何避免死锁
+
+至少破坏死锁产生的一个条件
+
+
+
+## 死锁问题怎么排查
+
+- 首先从系统级别上排查，比如说在 Linux 生产环境中，可以先使用 top ps 等命令查看进程状态，看看是否有进程占用了过多的资源。
+- 接着使用 JDK 自带的一些性能监控工具进行排查，比如说，使用 `jps -l` 查看当前 Java 进程，然后使用 `jstack 进程号` 查看当前 Java 进程的线程堆栈信息，看看是否有线程在等待锁资源。
+
+
+
+## 什么是线程同步
+
+| **对比项**                         | **线程同步（Synchronization）**       | **互斥（Mutex）**                  |
+| ---------------------------------- | ------------------------------------- | ---------------------------------- |
+| **作用**                           | 保证线程之间按正确顺序执行            | 确保多个线程不能同时访问共享资源   |
+| **多个线程能否同时访问共享资源？** | 可能可以（如读操作）                  | 不能（同一时刻只能有一个线程访问） |
+| **关注点**                         | 线程执行的**时序问题**                | 线程执行的**独占性问题**           |
+| **常见实现**                       | `wait() / notify()`、`CountDownLatch` | `synchronized`、`Lock`             |
+| **应用场景**                       | 生产者-消费者模式                     | 多线程计数器、银行账户操作         |
+
+**互斥是线程同步的一种特殊情况**，所有**互斥都是同步**，但**并不是所有同步都是互斥**。
+
+
+
+## 线程同步的实现方式有哪些
+
+- 互斥量
+- 读写锁
+- 条件变量
+- 自旋锁
+- 屏障
+- 信号量
+
+
+
+## 悲观锁和乐观锁
+
+- 乐观锁多用于“读多写少“的环境，避免频繁加锁影响性能；
+  - 在读多的场景下，不同的线程可以并行访问共享的资源，提高性能
+  - 在写多的场景下，大量线程失败，进入自旋，大量占用CPU资源
+- 悲观锁多用于”写多读少“的环境，避免频繁失败和重试影响性能。
+
+
+
+# ThreadLocal
+
+## ThreadLocal怎么实现的
+
+ThreadLocal 的实现原理就是，每个线程维护一个 ThreadLocalMap，key 为 ThreadLocal 对象，value 为想要实现线程隔离的对象。
+
+1、当需要存线程隔离的对象时，通过 ThreadLocal 的 set 方法将对象存入 Map 中。
+
+2、当需要取线程隔离的对象时，通过 ThreadLocal 的 get 方法从 Map 中取出对象。
+
+3、Map 的大小由 ThreadLocal 对象的多少决定。
+
+![ThreadLocal 的结构](https://cdn.tobebetterjavaer.com/stutymore/javathread-20240407205747.png)
+
+## ThreadLocal内存泄露是怎么回事
+
+**什么是弱引用，什么是强引用**
+
+![三分恶面渣逆袭：ThreadLocal内存分配](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-14.png)
+
+如果某个 ThreadLocal 变量在代码中不再有强引用（例如 threadLocal = null;），并且它的 key 是 **弱引用**（在 ThreadLocalMap 中），那么在下一次垃圾回收时，ThreadLocal 实例就会被回收。
+
+在 ThreadLocal 被垃圾收集后，下一次访问 ThreadLocalMap 时，Java 会自动清理那些键为 null 的条目（参照源码中的 replaceStaleEntry 方法），这个过程会在执行 ThreadLocalMap 相关操作（如 `get()`, `set()`, `remove()`）时触发。
+
+
+
+**内存泄露**
+
+通常情况下，随着线程 Thread 的结束，其内部的 ThreadLocalMap 也会被回收，从而避免了内存泄漏。
+
+但如果一个线程一直在运行，并且其 ThreadLocalMap 中的 Entry.value 一直指向某个强引用对象，那么这个对象就不会被回收，从而导致内存泄漏。当 Entry 非常多时，可能就会引发更严重的内存溢出问题。
+
+
+
+## ThreadLocalMap的源码看过吗
+
+**1. 元素数组**
+
+一个 table 数组，存储 Entry 类型的元素，Entry 是 ThreaLocal 弱引用作为 key，Object 作为 value 的结构。
+
+```java
+private Entry[] table;
+```
+
+
+
+**2. 散列方法**
+
+散列方法就是怎么把对应的 key 映射到 table 数组的相应下标，ThreadLocalMap 用的是哈希取余法，取出 key 的 threadLocalHashCode，然后和 table 数组长度减一&运算（相当于取余）。
+
+```java
+int i = key.threadLocalHashCode & (table.length - 1);
+```
+
+每创建一个 ThreadLocal 对象，它就会新增`0x61c88647`，这个值很特殊，它是**斐波那契数** 也叫 **黄金分割数**。`hash`增量为 这个数字，带来的好处就是 `hash` **分布非常均匀**。
+
+```java
+private static final int HASH_INCREMENT = 0x61c88647;
+
+private static int nextHashCode() {
+    return nextHashCode.getAndAdd(HASH_INCREMENT);
+}
+```
+
+
+
+## 父子线程怎么共享数据
+
+父线程能用 ThreadLocal 来给子线程传值吗？**不能。**
+
+
+
+# 内存模型
+
+## 为什么线程要用自己的内存
+
+![深入浅出 Java 多线程：Java内存模型](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/thread/jmm-f02219aa-e762-4df0-ac08-6f4cceb535c2.jpg)
+
+- 线程需要自己的栈来存储局部变量（比如一个方法中的局部变量，不同线程调用同一方法时，局部变量不能互相干扰）
+- 如果所有线程都直接操作主内存中的共享变量，会引发更多的内存访问竞争，这不仅影响性能，还增加了线程安全问题的复杂度。
+- 现代 CPU 为了优化执行效率，可能会对指令进行乱序执行（指令重排序）。使用本地内存（CPU 缓存和寄存器）可以在不影响最终执行结果的前提下，使得 CPU 有更大的自由度来乱序执行指令，从而提高执行效率。
+
+
+
+## final变量如何保证可见性
+
+Java 内存模型（JMM）规定：
+
+- **普通变量** 在构造对象时，可能**先发布（对象可见），后赋值**，导致其他线程看到的是**未初始化**的值（即重排序问题）。
+
+- **`final` 变量** 由于 JMM 规则，**构造方法执行完成后，`final` 变量的值必须对其他线程可见**，避免了重排序导致的未初始化问题。
+
+
+
+## 什么是指令重排
+
+**1. 编译器优化**
+
+- 编译器会调整指令顺序，以提高指令流水线效率。
+
+**2. CPU 指令乱序执行**
+
+- CPU 可能会调整指令的执行顺序，以提高指令并行度。
+
+**3. 内存系统的重排序**
+
+- 处理器会使用**缓存**和**写缓冲区**，导致内存访问顺序可能与代码执行顺序不同。
+
+
+
+## 指令重排有限制吗？happens-before了解吗？
+
+指令重排也是有一些限制的，有两个规则**happens-before**和**as-if-serial**来约束。
+
+- 如果一个操作 happens-before 另一个操作，那么第一个操作的执行结果将对第二个操作可见，而且第一个操作的执行顺序排在第二个操作之前。
+- 两个操作之间存在 happens-before 关系，并不意味着 Java 平台的具体实现必须要按照 happens-before 关系指定的顺序来执行。如果重排序之后的执行结果，与按 happens-before 关系来执行的结果一致，那么这种重排序并不非法
+
+
+
+![happens-before六大规则](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-23.png)
+
+- **程序顺序规则**：一个线程中的每个操作，happens-before 于该线程中的任意后续操作。
+- **监视器锁规则**：对一个锁的解锁，happens-before 于随后对这个锁的加锁。
+- **volatile 变量规则**：对一个 volatile 域的写，happens-before 于任意后续对这个 volatile 域的读。
+- **传递性**：如果 A happens-before B，且 B happens-before C，那么 A happens-before C。
+- **start()规则**：如果线程 A 执行操作 ThreadB.start()（启动线程 B），那么 A 线程的 ThreadB.start()操作 happens-before 于线程 B 中的任意操作。
+- **join()规则**：如果线程 A 执行操作 ThreadB.join()并成功返回，那么线程 B 中的任意操作 happens-before 于线程 A 从 ThreadB.join()操作成功返回。
+
+
+
+## as-if-serial又是什么？单线程的程序一定是顺序的吗
+
+as-if-serial 语义的意思是：不管怎么重排序（编译器和处理器为了提高并行度），**单线程程序的执行结果不能被改变**。
 
 
 
@@ -479,152 +709,15 @@ public final class Singleton {
 
 
 
-## ThreadLocal怎么实现的
-
-ThreadLocal 的实现原理就是，每个线程维护一个 ThreadLocalMap，key 为 ThreadLocal 对象，value 为想要实现线程隔离的对象。
-
-1、当需要存线程隔离的对象时，通过 ThreadLocal 的 set 方法将对象存入 Map 中。
-
-2、当需要取线程隔离的对象时，通过 ThreadLocal 的 get 方法从 Map 中取出对象。
-
-3、Map 的大小由 ThreadLocal 对象的多少决定。
-
-![ThreadLocal 的结构](https://cdn.tobebetterjavaer.com/stutymore/javathread-20240407205747.png)
-
-## ThreadLocal内存泄露是怎么回事
-
-**什么是弱引用，什么是强引用**
-
-![三分恶面渣逆袭：ThreadLocal内存分配](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-14.png)
-
-如果某个 ThreadLocal 变量在代码中不再有强引用（例如 threadLocal = null;），并且它的 key 是 **弱引用**（在 ThreadLocalMap 中），那么在下一次垃圾回收时，ThreadLocal 实例就会被回收。
-
-在 ThreadLocal 被垃圾收集后，下一次访问 ThreadLocalMap 时，Java 会自动清理那些键为 null 的条目（参照源码中的 replaceStaleEntry 方法），这个过程会在执行 ThreadLocalMap 相关操作（如 `get()`, `set()`, `remove()`）时触发。
-
-
-
-**内存泄露**
-
-通常情况下，随着线程 Thread 的结束，其内部的 ThreadLocalMap 也会被回收，从而避免了内存泄漏。
-
-但如果一个线程一直在运行，并且其 ThreadLocalMap 中的 Entry.value 一直指向某个强引用对象，那么这个对象就不会被回收，从而导致内存泄漏。当 Entry 非常多时，可能就会引发更严重的内存溢出问题。
-
-
-
-## ThreadLocalMap的源码看过吗
-
-**1. 元素数组**
-
-一个 table 数组，存储 Entry 类型的元素，Entry 是 ThreaLocal 弱引用作为 key，Object 作为 value 的结构。
-
-```java
-private Entry[] table;
-```
-
-
-
-**2. 散列方法**
-
-散列方法就是怎么把对应的 key 映射到 table 数组的相应下标，ThreadLocalMap 用的是哈希取余法，取出 key 的 threadLocalHashCode，然后和 table 数组长度减一&运算（相当于取余）。
-
-```java
-int i = key.threadLocalHashCode & (table.length - 1);
-```
-
-每创建一个 ThreadLocal 对象，它就会新增`0x61c88647`，这个值很特殊，它是**斐波那契数** 也叫 **黄金分割数**。`hash`增量为 这个数字，带来的好处就是 `hash` **分布非常均匀**。
-
-```java
-private static final int HASH_INCREMENT = 0x61c88647;
-
-private static int nextHashCode() {
-    return nextHashCode.getAndAdd(HASH_INCREMENT);
-}
-```
-
-
-
-## 父子线程怎么共享数据
-
-父线程能用 ThreadLocal 来给子线程传值吗？**不能。**
-
-
-
-## 为什么线程要用自己的内存
-
-![深入浅出 Java 多线程：Java内存模型](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/thread/jmm-f02219aa-e762-4df0-ac08-6f4cceb535c2.jpg)
-
-- 线程需要自己的栈来存储局部变量（比如一个方法中的局部变量，不同线程调用同一方法时，局部变量不能互相干扰）
-- 如果所有线程都直接操作主内存中的共享变量，会引发更多的内存访问竞争，这不仅影响性能，还增加了线程安全问题的复杂度。
-- 现代 CPU 为了优化执行效率，可能会对指令进行乱序执行（指令重排序）。使用本地内存（CPU 缓存和寄存器）可以在不影响最终执行结果的前提下，使得 CPU 有更大的自由度来乱序执行指令，从而提高执行效率。
-
-
-
-## final变量如何保证可见性
-
-Java 内存模型（JMM）规定：
-
-- **普通变量** 在构造对象时，可能**先发布（对象可见），后赋值**，导致其他线程看到的是**未初始化**的值（即重排序问题）。
-
-- **`final` 变量** 由于 JMM 规则，**构造方法执行完成后，`final` 变量的值必须对其他线程可见**，避免了重排序导致的未初始化问题。
-
-
-
-## 什么是指令重排
-
-**1. 编译器优化**
-
-- 编译器会调整指令顺序，以提高指令流水线效率。
-
-**2. CPU 指令乱序执行**
-
-- CPU 可能会调整指令的执行顺序，以提高指令并行度。
-
-**3. 内存系统的重排序**
-
-- 处理器会使用**缓存**和**写缓冲区**，导致内存访问顺序可能与代码执行顺序不同。
-
-
-
-## 指令重排有限制吗？happens-before了解吗？
-
-指令重排也是有一些限制的，有两个规则**happens-before**和**as-if-serial**来约束。
-
-- 如果一个操作 happens-before 另一个操作，那么第一个操作的执行结果将对第二个操作可见，而且第一个操作的执行顺序排在第二个操作之前。
-- 两个操作之间存在 happens-before 关系，并不意味着 Java 平台的具体实现必须要按照 happens-before 关系指定的顺序来执行。如果重排序之后的执行结果，与按 happens-before 关系来执行的结果一致，那么这种重排序并不非法
-
-
-
-![happens-before六大规则](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-23.png)
-
-- **程序顺序规则**：一个线程中的每个操作，happens-before 于该线程中的任意后续操作。
-- **监视器锁规则**：对一个锁的解锁，happens-before 于随后对这个锁的加锁。
-- **volatile 变量规则**：对一个 volatile 域的写，happens-before 于任意后续对这个 volatile 域的读。
-- **传递性**：如果 A happens-before B，且 B happens-before C，那么 A happens-before C。
-- **start()规则**：如果线程 A 执行操作 ThreadB.start()（启动线程 B），那么 A 线程的 ThreadB.start()操作 happens-before 于线程 B 中的任意操作。
-- **join()规则**：如果线程 A 执行操作 ThreadB.join()并成功返回，那么线程 B 中的任意操作 happens-before 于线程 A 从 ThreadB.join()操作成功返回。
-
-
-
-## as-if-serial又是什么？单线程的程序一定是顺序的吗
-
-as-if-serial 语义的意思是：不管怎么重排序（编译器和处理器为了提高并行度），**单线程程序的执行结果不能被改变**。
-
-
-
-
-
-
-
-
+# 线程池
 
 ## 线程池状态有哪些
 
 ThreadPoolExecutor使用int的高3位来表示线程池状态，低29位表示线程数量
 
-
 ![image-20250129105817900](https://github.com/user-attachments/assets/34d583d7-0734-44de-86ee-4a79b75201c0)
 
-
+![线程池状态切换图](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-78.png)
 
 ## 线程池参数有哪些
 
@@ -655,6 +748,8 @@ ThreadPoolExecutor使用int的高3位来表示线程池状态，低29位表示�
 
 **newFixedThreadPool**
 
+![FixedThreadPool](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-73.png)
+
 ```java
 public static ExecutorService newFixedThreadPool(int nThreads) {
     return new ThreadPoolExecutor(
@@ -673,6 +768,8 @@ public static ExecutorService newFixedThreadPool(int nThreads) {
 
 
 **newCachedThreadPool**
+
+![CachedThreadPool执行流程](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-74.png)
 
 ```java
 public static ExecutorService newCachedThreadPool() {
@@ -699,6 +796,8 @@ public static ExecutorService newCachedThreadPool() {
 
 **newSingleThreadExecutor**
 
+![SingleThreadExecutor运行流程](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-72.png)
+
 ```java
 public static ExecutorService newSingleThreadExecutor() {
     return new FinalizableDelegatedExecutorService(
@@ -717,6 +816,54 @@ public static ExecutorService newSingleThreadExecutor() {
 - 还会新建一个线程，保证池的正常工作（始终保证有一个可用的线程）
 
 
+
+**newScheduledThreadPool**
+
+![ScheduledThreadPool执行流程](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-75.png)
+
+```java
+public static ExecutorService newScheduledThreadExecutor() {
+    return new ThreadPoolExecutor(
+        corePoolsize,
+        Integer.MAX_VALUE,
+        0,
+        TimeUnit.NANOSECONDS,
+        new DelayedWorkQueue<Runnable>()
+    );
+}
+```
+
+- 最大线程数为 Integer.MAX_VALUE，也有 OOM 的风险
+- 阻塞队列是 DelayedWorkQueue
+- keepAliveTime 为 0
+- scheduleAtFixedRate() ：按某种速率周期执行
+- scheduleWithFixedDelay()：在某个延迟后执行
+
+
+
+## 线程池的阻塞队列有哪些
+
+- ArrayBlockingQueue
+
+  - 有界的先进先出的阻塞队列，底层是一个数组，适合固定大小的线程池
+
+- LinkedBlockingQueue
+
+  - 底层数据结构是链表，如果不指定大小，默认大小是 Integer.MAX_VALUE，相当于一个无界队列。
+
+- DelayQueue
+
+  - 
+
+- PriorityBlockingQueue
+
+  - 支持优先级排序的无界阻塞队列。任务按照其自然顺序或通过构造器给定的 Comparator 来排序。
+
+- SynchronousQueue
+
+  - 实际上它不是一个真正的队列，因为没有容量。每个插入操作(`put()`)必须等待另一个线程的移除(`get()`)操作，同样任何一个移除操作都必须等待另一个线程的插入操作。
+
+    
 
 ## 线程池的shutdown()和shutdownNow()区别
 
@@ -740,6 +887,185 @@ public static ExecutorService newSingleThreadExecutor() {
 
 
 
+## 线程池提交execute()和submit()有什么区别
+
+1. `execute()`用于提交不需要返回值的任务
+
+   ```java
+   threadPool.execute(new Runnable() {
+      @Override
+       public void run() {
+           // TODO
+       }
+   });
+   ```
+
+   
+
+2. `submit()`用于提交需要返回值的任务。线程池会返回一个future类型的对象，可以通过future的get方法获取返回值。
+
+   ```java
+   Future<Object> future = executor.submit(ReturnValueTask);
+   try{
+       Object s = future.get();
+   } catch(Exception e){
+       // 捕获异常
+   }
+   ```
+
+
+
+
+
+## 线程池的工作流程
+
+![三分恶面渣逆袭：线程池执行流程](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-66.png)
+
+当任务提交时，ThreadPoolExecutor 的执行逻辑如下：
+
+1. 如果当前线程数 < corePoolSize
+   - **直接创建新线程** 来执行任务，而不是进入队列。
+2. 如果当前线程数 ≥ corePoolSize
+   - 任务被添加到**任务队列（workQueue）**，等待线程执行。
+3. 如果任务队列满了
+   - **如果线程数 < maxPoolSize**，就**创建新线程** 处理任务。
+4. 如果线程数达到 maxPoolSize，并且任务队列也满了
+   - 任务会被拒绝，执行**拒绝策略**。
+
+
+
+ThreadPoolExecutor 只会在有任务提交时才创建线程，即不会在创建线程池时立即创建 corePoolSize个线程。
+
+
+
+## 线程池的线程数应该怎么配置
+
+首先分析线程池中执行的任务类型是 CPU 密集型还是 IO 密集型
+
+- 对于 CPU 密集型任务，我的目标是尽量减少线程上下文切换，以优化 CPU 使用率。一般来说，核心线程数设置为处理器的核心数或核心数加一（以备不时之需，如某些线程因等待系统资源而阻塞时）是较理想的选择。
+  - 对于 CPU 密集型任务，线程数接近 CPU 核心数即可
+
+- 对于 IO 密集型任务，由于线程经常处于等待状态（等待 IO 操作完成），可以设置更多的线程来提高并发性（比如说 2 倍），从而增加 CPU 利用率。
+  - 对于 IO 密集型任务，线程数可以简单设置为 CPU 核心数 × 2。
+
+
+
+## 如何知道设置的线程数多了还是少了
+
+可以先通过 top 命令观察 CPU 的使用率，如果 CPU 使用率较低，可能是线程数过少；如果 CPU 使用率接近 100%，但吞吐量未提升，可能是线程数过多。
+
+
+
+## 线程池怎么处理异常
+
+问题：线程池中的线程抛出异常不会被主线程捕获
+
+```java
+ExecutorService executor = Executors.newFixedThreadPool(2);
+executor.execute(() -> {
+    throw new RuntimeException("任务执行异常");
+});
+System.out.println("主线程不会受到影响");
+executor.shutdown();
+```
+
+**1. 使用try-catch在任务内部捕获异常**
+
+**2. 使用 Future 获取异常（适用于 `submit()`）**
+
+```java
+ExecutorService executor = Executors.newFixedThreadPool(2);
+Future<?> future = executor.submit(() -> {
+    throw new RuntimeException("任务异常");
+});
+
+try {
+    future.get(); // 获取任务执行结果，如果有异常，会在这里抛出 ExecutionException
+} catch (InterruptedException | ExecutionException e) {
+    System.out.println("捕获异常：" + e.getCause().getMessage());
+}
+executor.shutdown();
+
+```
+
+**3. 自定义 ThreadFactory 捕获异常**
+
+```java
+ExecutorService executor = Executors.newFixedThreadPool(2, runnable -> {
+    Thread thread = new Thread(runnable);
+    thread.setUncaughtExceptionHandler((t, e) -> 
+        System.out.println("线程 " + t.getName() + " 捕获异常：" + e.getMessage()));
+    return thread;
+});
+
+executor.execute(() -> {
+    throw new RuntimeException("线程池任务异常");
+});
+
+executor.shutdown();
+
+```
+
+**4. 重写 `ThreadPoolExecutor.afterExecute()` 方法**
+
+```java
+public class AfterExecuteExample extends ThreadPoolExecutor {
+    public AfterExecuteExample(int corePoolSize, int maxPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue) {
+        super(corePoolSize, maxPoolSize, keepAliveTime, unit, workQueue);
+    }
+
+    @Override
+    protected void afterExecute(Runnable r, Throwable t) {
+        super.afterExecute(r, t);
+        if (t == null && r instanceof Future<?>) {
+            try {
+                ((Future<?>) r).get(); // 捕获 submit() 任务的异常
+            } catch (InterruptedException | ExecutionException e) {
+                t = e.getCause();
+            }
+        }
+        if (t != null) {
+            System.out.println("捕获线程池异常：" + t.getMessage());
+        }
+    }
+}
+```
+
+
+
+## 线程池在使用的时候需要注意什么
+
+**1. 选择合适的线程池大小**
+
+- **过小**的线程池可能会导致任务一直在排队
+- **过大**的线程池可能会导致大家都在竞争 CPU 资源，增加上下文切换的开销
+
+**2. 任务队列的选择**
+
+- 使用有界队列可以避免资源耗尽的风险，但是可能会导致任务被拒绝
+- 使用无界队列虽然可以避免任务被拒绝，但是可能会导致内存耗尽
+
+**3. 尽量使用自定义的线程池**
+
+- newFixedThreadPool 线程池由于使用了 LinkedBlockingQueue，队列的容量默认无限大，实际使用中出现任务过多时会导致内存溢出
+- newCachedThreadPool 线程池由于核心线程数无限大，当任务过多的时候会导致创建大量的线程，可能机器负载过高导致服务宕机
+
+
+
+## 如何自己设计一个线程池
+
+
+
+## 单机线程池执行时断电了怎么处理
+
+对阻塞队列持久化；正在处理任务事务控制；断电之后正在处理任务的回滚，通过日志恢复该次操作；服务器重启后阻塞队列中的数据再加载。
+
+
+
+
+
+# 并发工具类
+
 ## HashMap有哪些线程安全问题
 
 **JDK7 HashMap并发死链**
@@ -748,11 +1074,121 @@ public static ExecutorService newSingleThreadExecutor() {
 
 
 
+## HashMap和ConcurrentHashMap的区别
+
+- HashMap 是非线程安全的，多线程环境下应该使用 ConcurrentHashMap。
+- 由于 HashMap 仅在单线程环境下使用，所以不需要考虑同步问题，因此效率高于 ConcurrentHashMap。
+
+
+
 ## ConcurrentHashMap的原理
 
+- JDK 7
+
+  ![初念初恋：JDK 7 ConcurrentHashMap](https://cdn.tobebetterjavaer.com/stutymore/map-20230816155810.png)
+
+  - 采用的是分段锁机制（Segment Locking），整个Map被分为若干段，每个段都可以独立地加锁。因此，不同线程可以同时操作不同的段，从而实现并发访问。
+
+  - **put方法流程**：ConcurrentHashMap 的 put 流程和 HashMap 非常类似，只不过是先定位到具体的 Segment，然后通过 ReentrantLock 去操作而已。
+
+    1. 计算 hash，定位到 segment，segment 如果是空就先初始化；
+    2. 使用 ReentrantLock 加锁，如果获取锁失败则尝试自旋，自旋超过次数就阻塞获取，保证一定能获取到锁；
+    3. 遍历 HashEntry，key 相同就直接替换，不存在就插入。
+    4. 释放锁。
+
+    <img src="https://cdn.tobebetterjavaer.com/stutymore/javathread-20240325113351.png" alt="三分恶面渣逆袭：JDK7 put 流程" style="zoom: 33%;" />
+
+  - **get方法流程**：get 也很简单，通过 `hash(key)` 定位到 segment，再遍历链表定位到具体的元素上，需要注意的是 value 是 volatile 的，所以 get 是不需要加锁的。
+
+    
+
+- JDK 8以后
+
+  ![初念初恋：JDK 8 ConcurrentHashMap](https://cdn.tobebetterjavaer.com/stutymore/map-20230816155924.png)
+
+  - 在JDK8及以上的版本中，进行了优化，不再使用分段锁，而是使用了一种更加精细化的锁—桶锁，以及CAS无锁算法。每个桶（Node 数组的每个元素）都可以独立地加锁，从而实现更高级别的并发访问。
+  - 对于读操作，通常不需要加锁，可以直接读取，ConcurrentHashMap 内部使用了 volatile 变量来保证内存可见性。
+  - 对于写操作，ConcurrentHashMap 使用 CAS 操作来实现无锁的更新，这是一种乐观锁的实现，因为它假设没有冲突发生，在实际更新数据时才检查是否有其他线程在尝试修改数据，如果有，采用悲观的锁策略，如 synchronized 代码块来保证数据的一致性。
+  - **put方法流程：**通过计算键的哈希值确定存储位置，如果桶为空，使用 CAS 插入节点；如果存在冲突，通过链表或红黑树插入。在冲突时，如果 CAS 操作失败，会退化为 synchronized 操作。写操作可能触发扩容或链表转为红黑树（当链表长度超过3/4时进行扩容，当链表长度超过 8 就转换成红黑树）。
+  - ![三分恶面渣逆袭：Java 8 put 流程](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/collection-32.jpg)
+  - **get 方法流程**：通过计算哈希值快速定位桶，在桶中查找目标节点，多个 key 值时链表遍历和红黑树查找。读操作是无锁的，依赖 volatile 保证线程可见性。
 
 
 
+## CountDownLatch了解吗
+
+用于协调多个线程之间的同步，允许一个或多个线程等待，直到其他线程中执行的一组操作完成。
+
+- 初始化：创建 CountDownLatch 对象时，指定计数器的初始值。
+- 等待（await）：一个或多个线程调用 await 方法，进入等待状态，直到计数器的值变为零。
+- 倒计数（countDown）：其他线程在完成各自任务后调用 countDown 方法，将计数器的值减一。当计数器的值减到零时，所有在 await 上等待的线程会被唤醒，继续执行。
+
+
+
+## CyclicBarrier（同步屏障）了解吗
+
+让一组线程到达一个屏障（也可以叫同步点）时被阻塞，直到最后一个线程到达屏障时，屏障才会开门，所有被屏障拦截的线程才会继续运行。
+
+![CyclicBarrier工作流程](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-55.png)
+
+## CyclicBarrier和CountDownLatch有什么区别
+
+- CountDownLatch 是一次性的，而 CyclicBarrier 则可以多次设置屏障，实现重复利用；
+- CountDownLatch 中的各个子线程不可以等待其他线程，只能完成自己的任务；而 CyclicBarrier 中的各个线程可以等待其他线程
+
+- 在 CyclicBarrier 中，如果某个线程遇到了中断、超时等问题时，则处于 await 的线程都会出现问题；在 CountDownLatch 中，如果某个线程出现问题，其他线程不受影响
+
+## Semaphore（信号量）了解吗
+
+Semaphore（信号量）是用来控制同时访问特定资源的线程数量，它通过协调各个线程，以保证合理的使用公共资源。
+
+![Semaphore许可获取-来源参考[18]](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-57.jpeg)
+
+## Exchanger了解吗
+
+Exchanger（交换者）是一个用于线程间协作的工具类。Exchanger 用于进行线程间的数据交换。它提供一个同步点，在这个同步点，两个线程可以交换彼此的数据。
+
+
+
+## CopyOnWriteArrayList的实现原理
+
+CopyOnWriteArrayList 是一个线程安全的 ArrayList，它遵循写时复制（Copy-On-Write）的原则，即在写操作时，会先复制一个新的数组，然后在新的数组上进行写操作，写完之后再将原数组引用指向新数组。
+
+![CL0610：最终一致性](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/thread/CopyOnWriteArrayList-01.png)
+
+- 读写分离，在写操作上使用Synchronized加锁，读操作上不加锁
+- 读操作弱一致性
+- **适用于“读多写少”的场景**，如果需要**实时一致性**，应该用 synchronized或 ConcurrentHashMap。
+
+
+
+## BlockingQueue是什么
+
+是线程安全的队列
+
+- **当队列为空**，消费者线程（`take()`）会 **自动阻塞**，直到队列中有元素可取。
+
+- **当队列满了**，生产者线程（`put()`）会 **自动阻塞**，直到队列有空位可用。
+
+
+
+## BlockingQueue的实现原理
+
+**put()**
+
+- 先获取锁 `lock.lockInterruptibly()`。
+- 如果队列 **已满**，调用 `notFull.await()` **阻塞**，等待 `take()` 唤醒。
+- 当 `take()` 消费一个元素，调用 `notFull.signal()` 唤醒 `put()` 线程。
+
+**take()**
+
+- 先获取锁 `lock.lockInterruptibly()`。
+- 如果队列 **为空**，调用 `notEmpty.await()` **阻塞**，等待 `put()` 唤醒。
+- 当 `put()` 放入一个元素，调用 `notEmpty.signal()` 唤醒 `take()` 线程。
+
+
+
+## Fork / Join框架了解吗
 
 
 

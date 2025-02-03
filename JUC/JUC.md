@@ -126,8 +126,8 @@ Java中采取共享内存的方式实现线程之间的通信。
 Java中线程分为两类：**守护线程**、**用户线程**
 
 - 守护线程的生命周期间接依赖用户线程，如果所有用户线程都结束了，守护线程会自动终止，JVM 退出。守护线程的生命周期完全依赖于 JVM 的运行状态。
-
 - 守护线程一般用于后台服务，比如垃圾回收线程、线程池管理线程等。
+- 用户线程是 Java 应用程序的主执行线程，JVM 只有在所有用户线程都执行完毕后，才会退出。
 
 
 
@@ -145,6 +145,33 @@ Java中线程分为两类：**守护线程**、**用户线程**
 - 一个线程调用 `exchange()` 方法，将数据传递给另一个线程，同时接收另一个线程的数据。
 
 **4.使用 CompletableFuture**
+
+```java
+import java.util.concurrent.*;
+
+public class CompletableFutureExample {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+        CompletableFuture<String> future = new CompletableFuture<>();
+
+        // 线程1：执行任务，并在完成后通知主线程
+        new Thread(() -> {
+            try {
+                Thread.sleep(2000); // 模拟耗时任务
+                future.complete("任务完成！"); // 通知 CompletableFuture
+            } catch (InterruptedException e) {
+                future.completeExceptionally(e); // 发生异常时通知
+            }
+        }).start();
+
+        // 线程2（主线程）：等待 future 完成
+        System.out.println("等待子线程执行任务...");
+        String result = future.get(); // 阻塞等待任务完成
+        System.out.println("收到子线程消息：" + result);
+    }
+}
+```
+
+主线程 `future.get()` 阻塞等待，直到 子线程调用 `future.complete()` 通知完成，主线程才继续执行。
 
 
 

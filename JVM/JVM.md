@@ -216,7 +216,7 @@ JVM 通过 "对象引用" 访问对象的实际内存地址，不同JVM采用不
 
   ![通过句柄访问对象](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/jvm-13.png)
 
-  - JVM 维护一个 "句柄池（Handle Pool）"，对象引用存储的是 "句柄地址"，而句柄中包含对象的 "数据地址" 和 "类型地址"。
+  - JVM 在堆中维护一个 "句柄池（Handle Pool）"，对象引用存储的是 "句柄地址"，而句柄中包含对象的 "数据地址" 和 "类型地址"。
 
 - 直接指针
 
@@ -232,7 +232,636 @@ JVM 通过 "对象引用" 访问对象的实际内存地址，不同JVM采用不
 
 
 
+## JVM堆的内存分区了解吗
 
+![三分恶面渣逆袭：Java堆内存划分](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/jvm-21.png)
+
+- 新生代
+  - 伊甸园区
+  - 幸存者From
+  - 幸存者To
+- 老年代
+
+
+
+## 新生代的内存区域划分
+
+​	![新生代内存划分](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/jvm-25.png)
+
+- 新生代的垃圾收集主要采用**标记复制**算法，因为新生代的存活对象比较少，每次复制少量的存活对象效率比较高
+
+- 虚拟机将内存分为一块较大的 Eden 空间和两块较小的 Survivor 空间，每次分配内存只使用 Eden 和其中一块 Survivor。发生垃圾收集时，将 Eden 和 Survivor 中仍然存活的对象一次性复制到另外一块 Survivor 空间上，然后直接清理掉 Eden 和已用过的那块 Survivor 空间。
+- 默认Eden和Survivor的大小比例是8 : 1 : 1
+
+
+
+## 对象什么时候会进入老年代
+
+**1. 长期存活的对象**
+
+**2. 大对象直接进入老年代**
+
+- 为了避免在年轻代中频繁复制大对象，直接在老年代分配可以减少在年轻代和老年代之间的数据复制。
+
+**3. 动态对象年龄判定**
+
+- 除了固定的年龄阈值，还会根据各个年龄段对象的存活大小和内存空间等因素动态调整对象的晋升策略。
+- 比如说，在 Survivor 空间中相同年龄的所有对象大小总和大于 Survivor 空间的一半，那么年龄大于或等于该年龄的对象就可以直接进入老年代。
+
+
+
+## 什么是Stop The World？什么是OopMap？什么是安全点
+
+**Stop The World**
+
+- 进行垃圾回收的过程中，会涉及对象的移动。为了保证对象引用更新的正确性，必须暂停所有的用户线程，像这样的停顿，虚拟机设计者形象描述为`Stop The World`。
+
+
+
+**OopMap**
+
+- OopMap（Object Offset Map，面向对象偏移映射）是 JVM 内部用于 **加速 GC（垃圾回收）** 的数据结构。
+- 录了方法栈帧、寄存器等位置上哪些是 **指向对象的引用**，从而帮助 GC 在扫描时快速找到存活对象。
+
+
+
+**安全点**
+
+- 用户程序执行时并非在代码指令流的任意位置都能够在停顿下来开始垃圾收集，而是必须是执行到安全点才能够暂停。
+- 安全点的位置主要在：
+  - 1.循环的末尾（非 counted 循环）
+  - 2.方法临返回前 / 调用方法的 call 指令后
+  - 3.可能抛异常的位置
+
+
+
+## 内存溢出和内存泄漏是什么意思
+
+**内存溢出OOM**
+
+- 指当程序请求分配内存时，由于没有足够的内存空间满足其需求，从而触发的错误。在 Java 中，这种情况会抛出 `OutOfMemoryError`。
+
+**内存泄漏**
+
+- 指程序在使用完内存后，未能释放已分配的内存空间，导致这部分内存无法再被使用。随着时间的推移，内存泄漏会导致可用内存逐渐减少，最终可能导致内存溢出。
+- 在 Java 中，内存泄漏通常发生在长期存活的对象持有短期存活对象的引用，而长期存活的对象又没有及时释放对短期存活对象的引用，从而导致短期存活对象无法被回收。
+
+
+
+## Java哪些内存区域会发生OOM
+
+**1. 堆**
+
+**2. 元空间**
+
+**3. 线程栈**
+
+**4.  直接内存**
+
+
+
+## 如何排查内存泄漏问题
+
+严重的**内存泄漏**往往伴随频繁的 **Full GC**，所以排查内存泄漏问题时，可以从 Full GC 入手。
+
+- 第一步，使用 `jps -l` 查看运行的 Java 进程 ID。
+
+- 使用`jstat`命令观察Full GC的次数，如果发现 Full GC次数太多，但内存的使用率并没有下降，就很大概率存在内存泄漏了。
+
+- 生成堆的快照文件（dump文件），使用图形化工具分析，观察内存占用最多的对象
+
+
+
+## 如何排查内存溢出问题
+
+- 使用`jstat`命令监控GC状态，看老年代的使用率
+- 生成堆快照文件，交给可视化工具进行分析
+
+
+
+## 什么情况下会发生栈溢出
+
+![二哥的Java进阶之路：栈帧](https://cdn.tobebetterjavaer.com/stutymore/stack-frame-20231224090450.png)
+
+当一个方法被调用时，JVM 会在栈中分配一个栈帧，用于存储该方法的执行信息。如果方法调用嵌套太深，栈帧不断压入栈中，最终会导致栈空间耗尽，抛出 StackOverflowError。
+
+
+
+
+
+
+
+# 垃圾回收
+
+## 如何判断对象是否可以被回收
+
+**1. 引用计数法**
+
+- 问题：
+
+  ![image-20250202131522866](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202131522866.png)
+
+  这两个对象互相引用，但不再被其他对象引用，它们的引用计数不为零，因此不会被回收。
+
+**2. 可达性分析算法**
+
+
+
+## 可达性分析算法是什么
+
+![三分恶面渣逆袭：GC Root](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/jvm-18.png)
+
+可达性分析算法将对象分为两类：
+
+- 垃圾回收的根对象（GC Root）：不可被回收
+- 普通对象
+
+如果从某个对象到GC Root对象是可达的，对象就不可被回收
+
+
+
+## 哪些对象被称之为GC Root对象
+
+- Java栈帧中的局部变量
+
+  ```java
+  public class StackReference {
+      public void greet() {
+          Object localVar = new Object(); // 这里的 localVar 是一个局部变量，存在于虚拟机栈中
+          System.out.println(localVar.toString());
+      }
+  
+      public static void main(String[] args) {
+          new StackReference().greet();
+      }
+  }
+  ```
+
+  - 在 greet 方法中，localVar 是一个局部变量，存在于虚拟机栈中，可以被认为是 GC Roots。
+
+  - 在 greet 方法执行期间，localVar 引用的对象是活跃的，因为它是从 GC Roots 可达的。
+
+  - 当 greet 方法执行完毕后，localVar 的作用域结束，localVar 引用的 Object 对象不再由任何 GC Roots 引用（假设没有其他引用指向这个对象），因此它将有资格作为垃圾被回收掉 
+
+- 方法区/元空间中的静态变量
+
+  ```java
+  public class StaticFieldReference {
+      private static Object staticVar = new Object(); // 类静态变量
+  
+      public static void main(String[] args) {
+          System.out.println(staticVar.toString());
+      }
+  }
+  ```
+
+  - StaticFieldReference 类中的 staticVar 引用了一个 Object 对象，这个引用存储在元空间，可以被认为是 GC Roots
+
+  - 只要 StaticFieldReference 类未被卸载，staticVar 引用的对象都不会被垃圾回收。如果 StaticFieldReference 类被卸载（这通常发生在其类加载器被垃圾回收时），那么 staticVar 引用的对象也将有资格被垃圾回收（如果没有其他引用指向这个对象）
+
+- 方法区/元空间中的常量引用
+
+  ```java
+  public class ConstantPoolReference {
+      public static final String CONSTANT_STRING = "Hello, World"; // 常量，存在于运行时常量池中
+      public static final Class<?> CONSTANT_CLASS = Object.class; // 类类型常量
+  
+      public static void main(String[] args) {
+          System.out.println(CONSTANT_STRING);
+          System.out.println(CONSTANT_CLASS.getName());
+      }
+  }
+  ```
+
+  - 在 ConstantPoolReference 中，CONSTANT_STRING 和 CONSTANT_CLASS 作为常量存储在运行时常量池。它们可以用来作为 GC Roots。
+
+  - 这些常量引用的对象（字符串"Hello, World"和 Object.class 类对象）在常量池中，只要包含这些常量的 ConstantPoolReference 类未被卸载，这些对象就不会被垃圾回收。
+
+- 监视器对象，用来保存同步锁synchronized关键字持有的对象
+
+  ![image-20250202122906221](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202122906221.png)
+
+- 本地方法栈中JNI的引用
+
+  ![pecuyu：动态链接](https://cdn.tobebetterjavaer.com/stutymore/gc-20240321085719.png)
+
+  ```java
+  // 假设的JNI方法
+  public native void nativeMethod();
+  
+  // 假设在C/C++中实现的本地方法
+  /*
+   * Class:     NativeExample
+   * Method:    nativeMethod
+   * Signature: ()V
+   */
+  JNIEXPORT void JNICALL Java_NativeExample_nativeMethod(JNIEnv *env, jobject thisObj) {
+      jobject localRef = (*env)->NewObject(env, ...); // 在本地方法栈中创建JNI引用
+      // localRef 引用的Java对象在本地方法执行期间是活跃的
+  }
+  ```
+
+  - 在本地（C/C++）代码中，localRef 是对 Java 对象的一个 JNI 引用，它在本地方法执行期间保持 Java 对象活跃，可以被认为是 GC Roots。
+  - 一旦 JNI 方法执行完毕，除非这个引用是全局的（Global Reference），否则它指向的对象将会被作为垃圾回收掉（假设没有其他地方再引用这个对象）。
+
+
+
+## finalize()方法了解吗？有什么作用？
+
+如果对象在进行可达性分析后发现没有与 GC Roots 相连接的引用链，那它将会被第一次标记，随后进行一次筛选，筛选的条件是此对象是否有必要执行 finalize()方法。如果对象在在 finalize()中成功拯救自己——只要重新与引用链上的任何一个对象建立关联即可，譬如把自己 （this 关键字）赋值给某个类变量或者对象的成员变量，那在第二次标记时它就”逃过一劫“；但是如果没有抓住这个机会，那么对象就真的要被回收了。
+
+
+
+## 四种引用
+
+**1. 强引用**
+
+**2. 软引用**
+
+- 垃圾回收后内存仍不够，回收
+
+**3. 弱引用**
+
+- 只要发生垃圾回收，不管内存是否充足，回收
+
+**4. 虚引用**
+
+- 垃圾回收时，回收
+
+- 必须配合 `ReferenceQueue` ，使用对象被 GC 回收后，会被放入 `ReferenceQueue`，通知开发者进行资源释放
+
+**5. 终结器引用**
+
+- 必须配合 `ReferenceQueue`，当对象没有强引用时，GC 会先把对象放入 `ReferenceQueue`，然后调用 `finalize()` 进行清理。
+- 专门用于 `Object.finalize()` 方法的调用，它在对象被垃圾回收（GC）之前会被 JVM 处理。
+- 已被 Java 认为是低效且不可靠的方式，JDK 9 之后已经不推荐使用。
+
+
+
+## 三种垃圾回收算法
+
+**1. 标记清除算法**
+
+![image-20250202230731812](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202230731812.png)
+
+- **优点**：速度快
+
+- **缺点**：会产生很多内存碎片
+
+
+
+**2. 标记整理算法**
+
+![image-20250202230916924](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202230916924.png)
+
+- **优点**：避免产生内存碎片
+
+- **缺点**：需要内存移动，速度慢
+
+
+
+**3. 复制算法**
+
+![image-20250202231053966](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202231053966.png)
+
+![image-20250202231109037](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202231109037.png)
+
+![image-20250202231123845](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202231123845.png)
+
+- **优点**：避免产生内存碎片
+
+- **缺点**：占用双倍的内存空间
+
+
+
+
+
+## 什么是分代垃圾回收
+
+![二哥的 Java 进阶之路：Java 堆划分](https://cdn.tobebetterjavaer.com/stutymore/gc-20231227131241.png)
+
+**新生代**：存放用完就能销毁的对象，垃圾回收比较频繁
+
+- 伊甸园区：新创建出的对象放在伊甸园区
+  - 当伊甸园区放不下时，会触发一次**Minor GC**（可达性算法 + 复制算法）
+  - 复制幸存的对象到幸存区To中，且让这些对象的寿命+1，寿命达到一定的阈值 => **晋升到老年代**（最大寿命是15，4个bit）
+  - 交换幸存区From和幸存区To
+  - **Minor GC** 会引发 **stop the world**，暂停其它用户线程，等垃圾回收结束，用户线程才恢复运行
+- 幸存区From / 幸存区To
+  - 第二次**Minor GC**的时候也要清理幸存区中的对象
+  - 将From中存活的移动到To
+  - 清理From
+  - 交换幸存区From和幸存区To
+  - 当幸存区空间不足时，存活对象会直接进入老年代
+
+**老年代**：存放长时间使用的对象，垃圾回收很久发生一次
+
+- 当对象晋升到老年代，但老年代空间不足时，会先尝试**Minor GC**，如果还不足，触发**Full GC**， **stop the world**时间更长
+- 如果老年代垃圾回收后还是不足，会触发OOM
+- 如果大对象在新生代放不下但在老年代放的下，就会直接放到老年代中
+
+
+
+## 为什么需要分代垃圾回收
+
+新生代的对象生命周期短，使用复制算法可以快速回收。老年代的对象生命周期长，使用标记-整理算法可以减少移动对象的成本。
+
+
+
+## 标记复制的标记过程和复制过程会不会停顿
+
+在标记-复制算法 中，标记阶段和复制阶段都会触发STW。
+
+- 标记阶段停顿是为了保证对象的引用关系不被修改。
+- 复制阶段停顿是防止对象在复制过程中被修改。
+
+
+
+## Minor GC、Major GC、Mixed GC、Full GC都是什么意思
+
+**Minor GC** 也称为 Young GC，是指发生在年轻代（Young Generation）的垃圾收集。
+
+**Major GC** 也称为 Old GC，主要指的是发生在老年代的垃圾收集。CMS 收集器的特有行为。
+
+**Mixed GC** 是 G1 垃圾收集器特有的一种 GC 类型，它在一次 GC 中同时清理年轻代和部分老年代。
+
+**Full GC** 是最彻底的垃圾收集，涉及整个 Java 堆和方法区（元空间）。它是最耗时的 GC，通常在 JVM 压力很大时发生。
+
+
+
+## Full GC时怎么去清理的
+
+Full GC 会从 GC Root 出发，标记所有可达对象。新生代使用复制算法，清空 Eden 区。老年代使用标记-整理算法，回收对象并消除碎片。
+
+停顿时间较长（STW），会影响系统响应性能。
+
+
+
+## Minor GC什么时候触发
+
+如果 Eden 区没有足够的空间时，就会触发 Young GC 来清理新生代。
+
+
+
+## Full GC什么时候触发
+
+- 在进行Minor GC 的时候，如果发现`老年代可用的连续内存空间` < `新生代历次 Minor GC 后升入老年代的对象总和的平均大小`，说明本次 Minor GC 后升入老年代的对象大小，可能超过了老年代当前可用的内存空间，就会触发 Full GC。
+- 执行 Minor GC 后老年代没有足够的内存空间存放转入的对象，会立即触发一次 Full GC。
+- 方法区空间不足时，可能会触发
+- `System.gc()`、`jmap -dump` 等命令会触发 full gc。
+
+
+
+## 空间分配担保是什么
+
+空间分配担保是指在进行 Minor GC（新生代垃圾回收）前，JVM 会确保老年代有足够的空间存放从新生代晋升的对象。如果老年代空间不足，可能会触发 Full GC。
+
+
+
+## 垃圾回收器的分类
+
+**1. 串行**（SerialGC）
+
+- 单线程
+
+- 堆内存较小，单核CPU
+
+- 复制 + 标记整理
+
+  ![image-20250203001057997](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203001057997.png)
+
+**2. 吞吐量优先**（ParallelGC）
+
+- 多线程
+
+- 堆内存较大，多核CPU
+
+- 让单位时间内，stop the world的时间最短（垃圾回收总时间的占比）
+
+- 垃圾回收时占用100%的CPU
+
+- 复制 + 标记整理
+
+  ![image-20250203001251008](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203001251008.png)
+
+  ![吞吐量](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/jvm-31.png)
+
+**3. 响应时间优先**（CMS）
+
+- 多线程
+- 堆内存较大，多核CPU
+- 尽可能让单次的stop the world的时间最短（初始标记 + 并发标记 + 重新标记 + 并发清理）
+- 并发
+- 复制 + 标记清除，容易产生内存碎片，可能触发 Full GC。![image-20250203002014110](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203002014110.png)
+
+
+
+## CMS垃圾回收器的详细过程
+
+CMS使用**标记清除**算法进行垃圾收集，分四大步：
+
+- **初始标记**
+  - 标记所有从 GC Roots 直接可达的对象，这个阶段需要 STW，但速度很快。
+- **并发标记**
+  - 从初始标记的对象出发，遍历所有对象，标记所有可达的对象。这个阶段是并发进行的。
+- **重新标记**
+  - 完成剩余的标记工作，包括处理并发阶段遗留下来的少量变动，这个阶段通常需要短暂的 STW 停顿。
+- **并发清除**
+  - 清除未被标记的对象，回收它们占用的内存空间。
+
+
+
+## 重新标记具体是怎么执行的
+
+**三色标记法**
+
+- **白色**：尚未访问的对象。垃圾回收结束后，仍然为白色的对象会被认为是不可达的对象，可以回收。
+- **灰色**：已经访问到但未标记完其引用的对象。灰色对象是需要进一步处理的。
+- **黑色**：已经访问到并且其所有引用对象都已经标记过。黑色对象是完全处理过的，不需要再处理。
+
+![Java全栈架构师：三色标记法](https://cdn.tobebetterjavaer.com/stutymore/jvm-20240816132235.png)
+
+当并发标记阶段时引用发生变化，会触发写屏障将变化的对象标记为灰色放入队列中，方便后续重新标记阶段处理。
+
+
+
+## 相关VM参数
+
+![image-20250202233750768](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202233750768.png)
+
+
+
+## 什么是G1垃圾回收器
+
+![有梦想的肥宅：G1](https://cdn.tobebetterjavaer.com/stutymore/gc-collector-20231228213824.png)
+
+- 同时注重吞吐量和低延迟
+- 适合超大堆内存，会将堆划分成多个大小相等的区域
+- 整体上是**标记 + 整理**算法；两个区域之间**复制**算法
+- 优点是停顿时间可控
+
+
+
+## G1垃圾回收阶段
+
+![image-20250203110722457](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203110722457.png)
+
+**1. Young Collection**
+
+- 会STW
+
+  ![image-20250203111151368](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203111151368.png)
+
+  ![image-20250203111203829](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203111203829.png)
+
+  ![image-20250203111224474](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203111224474.png)
+
+
+
+**2. Young Collection + CM**
+
+- 在Minor GC时会进行GC Root的初始标记
+
+- 老年代占用堆空间比例达到阈值时，进行并发标记（不会STW）
+
+  ![image-20250203111514335](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203111514335.png)
+
+**3. Mixed Collection**
+
+- 会对E、S、O进行全面垃圾回收（根据最大暂停时间有选择的回收老年代，**选择回收价值最高的老年代**）
+  - 最终标记会STW
+  - 拷贝存活会STW
+
+![image-20250203111741363](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203111741363.png)
+
+
+
+为了提高新生代寻找GC Root引用的效率，会记录老年代中的引用
+
+![image-20250203112604457](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203112604457.png)
+
+
+
+## 你们线上用的什么垃圾回收器？为什么要用它？
+
+我们生产环境中采用了设计比较优秀的 G1 垃圾收集器，因为它不仅能满足低停顿的要求，而且解决了 CMS 的浮动垃圾问题、内存碎片问题，能够同时考虑吞吐量和暂停时间。
+
+
+
+# JVM调优
+
+## 有哪些常用的命令行性能监控和故障处理工具
+
+- 操作系统工具
+  - top：显示系统整体资源使用情况
+  - vmstat：监控内存和CPU
+  - iostat：监控IO使用
+  - netstat：监控网络使用
+- JDK性能监控工具
+  - jps：查看jvm进程
+  - jstat：查看jvm运行时信息
+  - jinfo：查看虚拟机配置
+  - jmap：导出内存快照
+  - jstack：虚拟机堆栈跟踪
+
+**`jmap -heap <pid>` 查看堆内存摘要，包括新生代、老年代、元空间等。**
+
+![二哥的Java 进阶之路：jmap -heap](https://cdn.tobebetterjavaer.com/stutymore/jvm-20240806093153.png)
+
+**生成堆转储文件：`jmap -dump:format=b,file=<path> <pid>`。**
+
+![二哥的Java 进阶之路：jmap -dump](https://cdn.tobebetterjavaer.com/stutymore/console-tools-20240106184317.png)
+
+
+
+## 用过哪些可视化的性能监控和故障处理工具
+
+**1. JConsole**
+
+**2. VisualVM**
+
+**3. Arthas**
+
+
+
+## 如何进行JVM调优
+
+- JVM的堆内存如果设置过小，可能会导致频繁的垃圾回收
+  - 调整了 -Xms 和-Xmx 参数
+
+- 使用 VisualVM 定期观察和分析 GC 日志，如果发现频繁的 Full GC，就需要特别关注老年代的使用情况。
+- 通过分析 Heap dump 寻找内存泄漏的源头，看看是否有未关闭的资源，长生命周期的大对象
+- 之后，就要进行代码优化了，比如说减少大对象的创建、优化数据结构的使用方式、减少不必要的对象持有等。
+
+
+
+## CPU占用过高怎么排查
+
+- 首先使用top命令查看CPU占用情况，找到占用CPU较高的进程ID
+
+  ![haikuotiankongdong：top 命令结果](https://cdn.tobebetterjavaer.com/stutymore/jvm-20240527111502.png)
+
+- 接着，使用 jstack 命令查看对应进程的线程堆栈信息。
+
+  ```shell
+  jstack -l <pid> > thread-dump.txt
+  ```
+
+- 然后再使用 top 命令查看进程中线程的占用情况，找到占用 CPU 较高的线程 ID。
+
+  ```shell
+  top -H -p <pid>
+  ```
+
+  ![haikuotiankongdong：Java 进程中的线程情况](https://cdn.tobebetterjavaer.com/stutymore/jvm-20240527111356.png)
+
+- 最后，根据堆栈信息定位到具体的业务方法，查看是否有死循环、频繁的垃圾回收（GC）、资源竞争（如锁竞争）导致的上下文频繁切换等问题。
+
+
+
+## 内存飙高问题怎么排查
+
+内存飚高一般是因为创建了大量的 Java 对象所导致的，如果持续飙高则说明垃圾回收跟不上对象创建的速度，或者内存泄漏导致对象无法回收。
+
+- 第一，先观察垃圾回收的情况，可以通过 `jstat -gc PID 1000` 查看 GC 次数和时间。
+- 第二步，通过 jmap 命令 dump 出堆内存信息。
+- 第三步，使用可视化工具分析 dump 文件，比如说 VisualVM，找到占用内存高的对象，再找到创建该对象的业务代码位置，从代码和业务场景中定位具体问题。
+
+
+
+## 为什么会频繁发生Minor GC
+
+- 新生代空间太小
+
+  - 可以通过 -Xmn 增加新生代的大小
+
+  ```shell
+  java -Xmn256m your-app.jar
+  ```
+
+  
+
+- 对象创建过快
+
+- Survivor区太小，对象太早晋升老年代
+
+  - 可以通过 `-XX:SurvivorRatio` 参数调整 Eden 和 Survivor 的比例。默认比例是 8:1，表示 8 个空间用于 Eden，1 个空间用于 Survivor 区。
+
+  ```shell
+  -XX:SurvivorRatio=6
+  ```
+
+
+
+## 为什么会频繁发生Full GC
+
+- 大对象直接分配到老年代
+  - `-XX:PretenureSizeThreshold` 参数设置大对象直接进入老年代的阈值。
+- 程序中存在内存泄漏
+  - 通过分析堆内存 dump 文件找到内存泄漏的对象，再找到内存泄漏的代码位置
+- 一些长生命周期的对象进入到了老年代，导致老年代空间不足
+  - 及时释放资源，比如说 ThreadLocal、数据库连接、IO 资源等。
+- 不合理的 GC 参数配置也导致 GC 频率过高。比如说新生代的空间设置过小
 
 
 
@@ -275,6 +904,14 @@ JVM 通过 "对象引用" 访问对象的实际内存地址，不同JVM采用不
 
   - 启动类加载器改为使用Java编写，从模块中找到要加载的字节码资源文件
   - 扩展类加载器被替换成了**平台类加载器(Platform ClassLoader)**，遵循模块化方式加载字节码文件
+
+
+
+# GC调优
+
+
+
+
 
 
 
@@ -342,7 +979,7 @@ JVM 通过 "对象引用" 访问对象的实际内存地址，不同JVM采用不
 
 - 重写`loadClass()`方法替换掉原始方法中的双亲委派机制的部分
 
-  <img src="C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202010126566.png" alt="image-20250202010126566" style="zoom:50%;" />
+  
 
 - 正确的去实现一个自定义类加载器（不打破双亲委派机制）的方式是重写`findClass()`方法
 
@@ -396,7 +1033,6 @@ JDBC案例
 
 # 参考资料
 
-- P12 - P19 （类加载器分类到双亲委派机制）
 - P48 - P95 （垃圾回收到GC调优）
 - P150 - P158 （类加载器）
 - P175 - P184 （从CAS看到Synchronized）

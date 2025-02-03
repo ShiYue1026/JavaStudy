@@ -70,7 +70,7 @@ JVM就是Java虚拟机，是Java实现跨平台的基石
 
   
 
-![image-20250201233506455](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250201233506455.png)
+![image-20250201233506455](https://github.com/user-attachments/assets/8a7f74a1-10a3-4f1b-b7aa-5e2c09d1054b)
 
 
 
@@ -359,7 +359,8 @@ JVM 通过 "对象引用" 访问对象的实际内存地址，不同JVM采用不
 
 - 问题：
 
-  ![image-20250202131522866](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202131522866.png)
+  ![image-20250202131522866](https://github.com/user-attachments/assets/dd8200c9-0d44-4a45-87c5-cc180cb2e2c0)
+
 
   这两个对象互相引用，但不再被其他对象引用，它们的引用计数不为零，因此不会被回收。
 
@@ -439,7 +440,8 @@ JVM 通过 "对象引用" 访问对象的实际内存地址，不同JVM采用不
 
 - 监视器对象，用来保存同步锁synchronized关键字持有的对象
 
-  ![image-20250202122906221](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202122906221.png)
+  ![image-20250202122906221](https://github.com/user-attachments/assets/1a1217a7-4a95-4896-a9de-62e4a61af95f)
+
 
 - 本地方法栈中JNI的引用
 
@@ -502,7 +504,8 @@ JVM 通过 "对象引用" 访问对象的实际内存地址，不同JVM采用不
 
 **1. 标记清除算法**
 
-![image-20250202230731812](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202230731812.png)
+![image-20250202230731812](https://github.com/user-attachments/assets/abaf52d1-15cb-4c39-9cd3-071945270dff)
+
 
 - **优点**：速度快
 
@@ -512,7 +515,8 @@ JVM 通过 "对象引用" 访问对象的实际内存地址，不同JVM采用不
 
 **2. 标记整理算法**
 
-![image-20250202230916924](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202230916924.png)
+![image-20250202230916924](https://github.com/user-attachments/assets/17e342b9-9967-4f93-b8eb-8431883d577b)
+
 
 - **优点**：避免产生内存碎片
 
@@ -522,11 +526,14 @@ JVM 通过 "对象引用" 访问对象的实际内存地址，不同JVM采用不
 
 **3. 复制算法**
 
-![image-20250202231053966](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202231053966.png)
+![image-20250202231053966](https://github.com/user-attachments/assets/0be6ab00-5cd2-41fa-9ba0-2c160e3e0d38)
 
-![image-20250202231109037](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202231109037.png)
 
-![image-20250202231123845](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202231123845.png)
+![image-20250202231109037](https://github.com/user-attachments/assets/df653f90-9c2a-4c26-8071-bfbbd08f96d0)
+
+
+![image-20250202231123845](https://github.com/user-attachments/assets/91db6c22-8c32-46fd-8705-465ae339943c)
+
 
 - **优点**：避免产生内存碎片
 
@@ -628,7 +635,8 @@ Full GC 会从 GC Root 出发，标记所有可达对象。新生代使用复制
 
 - 复制 + 标记整理
 
-  ![image-20250203001057997](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203001057997.png)
+  ![image-20250203001057997](https://github.com/user-attachments/assets/43e54791-c1e0-4399-a892-d367872ddba5)
+
 
 **2. 吞吐量优先**（ParallelGC）
 
@@ -642,7 +650,8 @@ Full GC 会从 GC Root 出发，标记所有可达对象。新生代使用复制
 
 - 复制 + 标记整理
 
-  ![image-20250203001251008](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203001251008.png)
+  ![image-20250203001251008](https://github.com/user-attachments/assets/d1af4cdd-150a-4681-89df-7d069a3ad65b)
+
 
   ![吞吐量](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/jvm-31.png)
 
@@ -652,7 +661,8 @@ Full GC 会从 GC Root 出发，标记所有可达对象。新生代使用复制
 - 堆内存较大，多核CPU
 - 尽可能让单次的stop the world的时间最短（初始标记 + 并发标记 + 重新标记 + 并发清理）
 - 并发
-- 复制 + 标记清除，容易产生内存碎片，可能触发 Full GC。![image-20250203002014110](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203002014110.png)
+- 复制 + 标记清除，容易产生内存碎片，可能触发 Full GC。![image-20250203002014110]![image-20250203002014110](https://github.com/user-attachments/assets/849a8b10-42af-4319-b5eb-3a5b59ec8c0d)
+
 
 
 
@@ -687,7 +697,8 @@ CMS使用**标记清除**算法进行垃圾收集，分四大步：
 
 ## 相关VM参数
 
-![image-20250202233750768](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202233750768.png)
+![image-20250202233750768](https://github.com/user-attachments/assets/c20898e3-6c64-4000-9148-c0a11b86121f)
+
 
 
 
@@ -704,17 +715,21 @@ CMS使用**标记清除**算法进行垃圾收集，分四大步：
 
 ## G1垃圾回收阶段
 
-![image-20250203110722457](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203110722457.png)
+![image-20250203110722457](https://github.com/user-attachments/assets/3e1477fe-b3e1-43c2-8dd9-ad1d52dbd667)
+
 
 **1. Young Collection**
 
 - 会STW
 
-  ![image-20250203111151368](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203111151368.png)
+  ![image-20250203111151368](https://github.com/user-attachments/assets/f552436b-761a-48a9-8f36-919997980793)
 
-  ![image-20250203111203829](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203111203829.png)
 
-  ![image-20250203111224474](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203111224474.png)
+  ![image-20250203111203829](https://github.com/user-attachments/assets/482bb323-a37d-40c7-89f9-421c1ba0c9fa)
+
+
+  ![image-20250203111224474](https://github.com/user-attachments/assets/a8662c6a-0050-4616-bb89-95612dc4b1fa)
+
 
 
 
@@ -724,7 +739,8 @@ CMS使用**标记清除**算法进行垃圾收集，分四大步：
 
 - 老年代占用堆空间比例达到阈值时，进行并发标记（不会STW）
 
-  ![image-20250203111514335](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203111514335.png)
+  ![image-20250203111514335](https://github.com/user-attachments/assets/6601830e-772b-41e1-b7c6-fad6aaee5fff)
+
 
 **3. Mixed Collection**
 
@@ -732,13 +748,15 @@ CMS使用**标记清除**算法进行垃圾收集，分四大步：
   - 最终标记会STW
   - 拷贝存活会STW
 
-![image-20250203111741363](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203111741363.png)
+![image-20250203111741363](https://github.com/user-attachments/assets/a1ea1423-0ef6-47a2-98f8-3b08c8c0b65e)
+
 
 
 
 为了提高新生代寻找GC Root引用的效率，会记录老年代中的引用
 
-![image-20250203112604457](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250203112604457.png)
+![image-20250203112604457](https://github.com/user-attachments/assets/419e85c8-d226-48c7-97ea-961ca0375c0d)
+
 
 
 
@@ -881,7 +899,8 @@ CMS使用**标记清除**算法进行垃圾收集，分四大步：
 
 ## 什么是类加载器
 
-![image-20250202000135012](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202000135012.png)
+![image-20250202000135012](https://github.com/user-attachments/assets/0001c38f-68fe-41e2-a4e2-795d0cf17c33)
+
 
 - 类加载器（ClassLoader）是JVM提供给应用程序去实现获取类和接口字节码数据的技术
 
@@ -900,7 +919,8 @@ CMS使用**标记清除**算法进行垃圾收集，分四大步：
 
   - 引入了module模块化的概念，从jmod文件中进行加载
 
-    ![image-20250202104527167](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202104527167.png)
+    ![image-20250202104527167](https://github.com/user-attachments/assets/1e7a193b-442f-4dd4-b68e-0bf8a55552ac)
+
 
   - 启动类加载器改为使用Java编写，从模块中找到要加载的字节码资源文件
   - 扩展类加载器被替换成了**平台类加载器(Platform ClassLoader)**，遵循模块化方式加载字节码文件
@@ -987,7 +1007,8 @@ CMS使用**标记清除**算法进行垃圾收集，分四大步：
 
 JDBC案例
 
-![image-20250202103237528](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202103237528.png)
+![image-20250202103237528](https://github.com/user-attachments/assets/963514fc-b760-4bb5-bdd9-4bb2308ee179)
+
 
 - 启动类加载器加载DriverManager
 
@@ -995,7 +1016,8 @@ JDBC案例
 
 - SPI中利用了线程上下文类加载器（应用程序类加载器）去加载类并创建对象
 
-  ![image-20250202103718778](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202103718778.png)
+  ![image-20250202103718778](https://github.com/user-attachments/assets/fa9fb736-97db-48d9-8f31-f24e8fb23230)
+
 
 **3. Osgi框架的类加载器**
 

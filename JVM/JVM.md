@@ -977,7 +977,8 @@ CMS使用**标记清除**算法进行垃圾收集，分四大步：
 
 - 当一个类加载器接收到加载类的任务时，会自底向上查找是否加载过，再由顶向下进行加载
 
-![image-20250202004528115](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250202004528115.png)
+![image-20250202004528115](https://github.com/user-attachments/assets/8e9d1ade-bd68-4cff-83b4-79943cb24c9a)
+
 
 
 

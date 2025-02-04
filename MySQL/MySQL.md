@@ -151,6 +151,244 @@
 
 
 
+## UNION 和 UNION ALL的区别
+
+`UNION` 和 `UNION ALL` 都用于合并两个或多个 `SELECT` 语句的查询结果
+
+**UNION**
+
+- 自动去重，且去重需要排序
+- 效率低
+
+**UNION ALL**
+
+- 不去重，直接合并所有查询结果
+
+- 性能好
+
+如果合并没有刻意要删除重复行，那么就使用 UNION All
+
+
+
+## count(1)、count(*) 与 count(列名) 的区别
+
+- count(*)包括了所有的列，相当于行数，在统计结果的时候，不会忽略列值为 NULL
+- count(1)包括了忽略所有列，用 1 代表代码行，在统计结果的时候，不会忽略列值为 NULL
+- count(列名)只包括列名那一列，在统计结果的时候，会忽略列值为空（这里的空不是只空字符串或者 0，而是表示 null）的计数，即某个字段值为 NULL 时，不统计。
+
+
+
+## SQL查询语句的执行顺序了解吗
+
+![查询语句执行顺序](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/mysql-47ddea92-cf8f-49c4-ab2e-69a829ff1be2.jpg)
+
+```mysql
+SELECT DISTINCT department, COUNT(*) 
+FROM employees
+JOIN departments ON employees.department_id = departments.id
+WHERE salary > 5000
+GROUP BY department
+HAVING COUNT(*) > 10
+ORDER BY COUNT(*) DESC
+LIMIT 5;
+```
+
+**执行顺序：**
+
+1. **`FROM`** → 选择 `employees` 和 `departments` 两个表。
+2. **`ON`** → 连接 `employees.department_id = departments.id`。
+3. **`JOIN`** → 执行 `JOIN` 连接两个表的数据。
+4. **`WHERE`** → 过滤 `salary > 5000` 的行。
+5. **`GROUP BY`** → 按 `department` 分组。
+6. **`HAVING`** → 仅保留 `COUNT(*) > 10` 的分组。
+7. **`SELECT`** → 选择 `department` 和 `COUNT(*)` 作为最终输出列。
+8. **`DISTINCT`** → 确保 `department` 没有重复值（通常 `GROUP BY` 之后已去重）。
+9. **`ORDER BY`** → 按 `COUNT(*)` 降序排序。
+10. **`LIMIT`** → 返回前 5 条记录。
+
+
+
+## MySQL第3 - 10条记录怎么查？
+
+可以使用limit语句，结合偏移量offset和行数row_count来实现
+
+limit 语句用于限制查询结果的数量，偏移量表示从哪条记录开始，行数表示返回的记录数量。
+
+```mysql
+SELECT * FROM table_name LIMIT 2, 8;
+```
+
+- 2：偏移量，表示跳过前两条记录，从第三条记录开始。
+- 8：行数，表示从偏移量开始，返回 8 条记录。
+
+偏移量是从 0 开始的，即第一条记录的偏移量是 0；如果想从第 3 条记录开始，偏移量就应该是 2。
+
+
+
+## 用过哪些MySQL函数
+
+- 字符串函数
+
+  - `CONCAT()`: 连接两个或多个字符串。
+  - `LENGTH()`: 返回字符串的长度。
+  - `LOWER()` 和 `UPPER()`: 分别将字符串转换为小写或大写。
+  - `TRIM()`: 去除字符串两侧的空格或其他指定字符。
+
+- 数值函数
+
+  - `ABS()`: 返回一个数的绝对值。
+  - `CEILING()`: 返回大于或等于给定数值的最小整数。
+  - `FLOOR()`: 返回小于或等于给定数值的最大整数。
+  - `ROUND()`: 四舍五入到指定的小数位数。
+  - `MOD()`: 返回除法操作的余数。
+
+- 日期和时间函数
+
+  - `NOW()`: 返回当前的日期和时间。
+
+  - `DATE_ADD()` 和 `DATE_SUB()`: 在日期上加上或减去指定的时间间隔。
+  - `DATEDIFF()`: 返回两个日期之间的天数。
+
+- 汇总函数
+  - `SUM()`: 计算数值列的总和。
+  - `AVG()`: 计算数值列的平均值。
+  - `COUNT()`: 计算某列的行数。
+  - `MAX()` 和 `MIN()`: 分别返回列中的最大值和最小值。
+
+- 逻辑函数
+  - `IF()`: 如果条件为真，则返回一个值；否则返回另一个值。
+
+- 类型转换函数
+  - `CAST()`: 将一个值转换为指定的数据类型。
+  - `CONVERT()`: 类似于`CAST()`，用于类型转换。
+
+
+
+## 说说SQL的隐式数据类型转换
+
+在 SQL 中，当不同数据类型的值进行运算或比较时，会发生隐式数据类型转换。
+
+比如说，当一个整数和一个浮点数相加时，整数会被转换为浮点数，然后再进行相加。
+
+```sql
+SELECT 1 + 1.0; -- 结果为 2.0
+```
+
+比如说，当一个字符串和一个整数相加时，字符串会被转换为整数，然后再进行相加。
+
+```sql
+SELECT '1' + 1; -- 结果为 2
+```
+
+
+
+可以通过显式转换来规避这种情况。
+
+```sql
+SELECT CAST('1' AS SIGNED INTEGER) + 1; -- 结果为 2
+```
+
+
+
+## 说说SQL的语法树解析
+
+SQL语法树解析过程通常包含**词法分析**、**语法分析**、**语义分析**
+
+
+
+```mysql
+SELECT name, age FROM users WHERE age > 18;
+```
+
+```mysql
+      SELECT
+     /   |   \
+ COLUMNS FROM WHERE
+  /   \    |    \
+name  age users  CONDITION
+                       / | \
+                    age  >  18
+
+
+```
+
+- **根节点**：通常是 SQL 语句的主要操作，例如 SELECT、INSERT、UPDATE、DELETE 等。
+- **内部节点**：表示语句中的操作符、子查询、连接操作等。例如，WHERE 子句、JOIN 操作等。
+- **叶子节点**：表示具体的标识符、常量、列名、表名等。例如，users 表、id 列、常量 1 等
+
+
+
+# 数据库架构
+
+## MySQL体系结构
+
+![image-20250204134527182](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250204134527182.png)
+
+- 连接层
+  - 完成一些类似于连接处理、授权认证、及相关的安全方案
+- 服务层
+  - 完成大多数的核心服务功能 ，包括查询解析、优化、执行等操作
+- 引擎层
+  - 存储引擎真正的负责了MySQL中数据的存储和提取
+- 存储层
+  - 主要是将数据存储在文件系统之上，并完成与存储引擎的交互
+
+
+
+## binlog写入在哪一层
+
+binlog 在服务层，负责记录 SQL 语句的变化。它记录了所有对数据库进行更改的操作，用于数据恢复、主从复制等。
+
+
+
+## 一条查询语句如何执行
+
+![二哥的 Java 进阶之路：SQL 执行](https://cdn.tobebetterjavaer.com/stutymore/mysql-20240415102041.png)
+
+1. 客户端发送 SQL 查询语句到 MySQL 服务器。
+2. MySQL 服务器的连接器开始处理这个请求，跟客户端建立连接、获取权限、管理连接。
+3. 解析器对 SQL 语句进行解析，检查语句是否符合 SQL 语法规则，确保引用的数据库、表和列都是存在的，并处理 SQL 语句中的名称解析和权限验证。
+4. 优化器负责确定 SQL 语句的执行计划，这包括选择使用哪些索引，以及决定表之间的连接顺序等。
+5. 执行器会调用存储引擎的 API 来进行数据的读写。
+6. MySQL 的存储引擎是插件式的，不同的存储引擎在细节上面有很大不同。例如，InnoDB 是支持事务的，而 MyISAM 是不支持的。之后，会将执行结果返回给客户端
+7. 客户端接收到查询结果，完成这次查询请求。
+
+
+
+## 一条更新语句怎么执行
+
+对于更新语句，数据除了要写入表中，还要记录相应的日志。
+
+![update 执行](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/mysql-812fb038-39de-4204-ac9f-93d8b7448a18.jpg)
+
+
+
+## 说说MySQL的数据存储形式
+
+MySQL 是以表的形式存储数据的，而表空间的结构则由段、区、页、行组成。
+
+![不要迷恋发哥：段、区、页、行](https://cdn.tobebetterjavaer.com/stutymore/mysql-20240515110034.png)
+
+- 表空间由多个段组成
+
+  - 数据段：存储表的数据
+
+  - 索引段：存储 B+ 树索引
+
+  - 回滚段：存储 事务回滚日志（Undo Log）
+
+- 段是为了隔离数据、索引和回滚
+- 区是为了保证同一张表的数据尽可能连续存储，减少磁盘碎片
+  - 每个区的大小为1MB，每页为16KB，一个区有64个页
+
+- MySQL读取数据按页为单位，减少I/O次数
+
+- 记录是为了支持行级锁和MVCC
+
+
+
+
+
 # 事务
 
 ## 什么是事务
@@ -281,6 +519,74 @@ MySQL通过事务、undo log、redo log来确保ACID
 
 - Read Committed：每次select，都生成一个快照读，保证每次读操作都是最新的数据
 - Repeatable Read：开启事务后第一个select语句才是生成快照读的地方，后续读操作都使用这个 ReadView，保证事务内读取的数据是一致的
+
+
+
+# 存储引擎
+
+## 什么是存储引擎
+
+存储引擎就是存储数据、建立索引、更新/查询数据等技术的实现方式
+
+存储引擎是基于表的，不是基于库的，因此存储引擎也可被称为表类型
+
+
+
+## InnoDB存储引擎是什么
+
+在MySQL5.5之后，InnoDB是默认的MySQL存储引擎
+
+**特点**：
+
+- DML操作遵循ACID模型，支持**事务**
+- **行级锁**，提高并发访问性能
+- 支持**外键**FOREIGN KEY约束，保证数据的完整性和正确性
+
+**文件**：
+
+- xxx.ibd：xxx代表的表名，innoDB引擎的每张表都会对应这样一个表空间文件，存储该表的表结构、数据和缩影
+
+**逻辑存储结构**：
+
+![不要迷恋发哥：段、区、页、行](https://cdn.tobebetterjavaer.com/stutymore/mysql-20240515110034.png)
+
+页的大小是16KB，区的大小是1MB
+
+
+
+## MyISAM存储引擎是什么
+
+MyISAM是MySQL早期的默认存储引擎
+
+**特点**：
+
+- 不支持事务，不支持外键
+- 支持表锁，不支持行锁
+- 访问速度快
+
+**文件**：
+
+- xxx.sdi：存储表结构信息
+- xxx.MYD：存储数据
+- xxx.MYI：存储索引
+
+
+
+## 如何选择合适的存储引擎
+
+**InnoDB**：
+
+- 如果应用对事物的完整性有比较高的要求，在并发条件下要求数据的一致性，数据操作除了插入和查询之外，还包含很多的更新、删除操作，那么选择InnoDB
+
+**MyISAM**:
+
+- 如果应用是以读操作和插入操作为主，并且对事物的完整性、并发性要求不是很高，那么可以选择MyISAM（日志、电商中的足迹、评论数据）
+- 被mongoDB替代
+
+**MEMORY**:
+
+- 将所有数据保存在内存中，访问速度快，通常用于临时表及缓存
+- 被Redis替代
 
 
 

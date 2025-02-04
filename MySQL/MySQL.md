@@ -270,7 +270,8 @@ MySQL通过事务、undo log、redo log来确保ACID
 
 ![二哥的 Java 进阶之路：](https://cdn.tobebetterjavaer.com/stutymore/mysql-20240415094939.png)
 
-![image-20250204114932260](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250204114932260.png)
+![image-20250204114932260](https://github.com/user-attachments/assets/5530a014-a5e0-4462-9fb2-ab8ba5c462bc)
+
 
 
 

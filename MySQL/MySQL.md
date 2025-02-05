@@ -322,7 +322,8 @@ name  age users  CONDITION
 
 ## MySQL体系结构
 
-![image-20250204134527182](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250204134527182.png)
+![image-20250204134527182](https://github.com/user-attachments/assets/fd2f4ade-3b55-4a9e-bada-923cdd68fb5b)
+
 
 - 连接层
   - 完成一些类似于连接处理、授权认证、及相关的安全方案
@@ -827,7 +828,8 @@ explain select * from students where id =9
 
 **B树**
 
-![image-20250205103856150](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250205103856150.png)
+![image-20250205103856150](https://github.com/user-attachments/assets/d472a9ec-602b-484e-a259-0e5bf1cd9746)
+
 
 - n个key会有n+1个指针
 - 每个key下面都会有数据
@@ -945,13 +947,15 @@ CREATE INDEX idx_xxx ON table_name(colunm(n))
 
 此时可以只将字符串的一部分前缀建立索引，这样可以大大节约索引空间，从而提高索引效率。
 
-![image-20250205123433179](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250205123433179.png)
+![image-20250205123433179](https://github.com/user-attachments/assets/9df1e7cf-fa91-4600-b268-ef74ba48fb50)
+
 
 
 
 ## 联合索引的数据结构
 
-![image-20250205124033059](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250205124033059.png)
+![image-20250205124033059](https://github.com/user-attachments/assets/e7df1d22-994d-455e-92fa-ecc19d3d25ee)
+
 
 
 

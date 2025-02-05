@@ -322,8 +322,7 @@ name  age users  CONDITION
 
 ## MySQL体系结构
 
-![image-20250204134527182](https://github.com/user-attachments/assets/fd2f4ade-3b55-4a9e-bada-923cdd68fb5b)
-
+![image-20250204134527182](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250204134527182.png)
 
 - 连接层
   - 完成一些类似于连接处理、授权认证、及相关的安全方案
@@ -814,6 +813,15 @@ explain select * from students where id =9
 
 
 
+## 为什么索引能加快查询
+
+数据库的数据存储在磁盘中，
+
+- 如果没有索引，数据库需要从磁盘中读取整个表，所有数据页都需要被加载到内存，导致大量的磁盘I/O
+- 有索引，先访问索引，定位存储位置，直接读取相关数据页
+
+
+
 ## 索引的数据结构
 
 **二叉搜索树**：
@@ -828,8 +836,7 @@ explain select * from students where id =9
 
 **B树**
 
-![image-20250205103856150](https://github.com/user-attachments/assets/d472a9ec-602b-484e-a259-0e5bf1cd9746)
-
+![image-20250205103856150](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250205103856150.png)
 
 - n个key会有n+1个指针
 - 每个key下面都会有数据
@@ -846,12 +853,55 @@ explain select * from students where id =9
 
 ## 为什么用B+树作为索引而不用B树
 
-- B+树的内部节点仅存储索引，不存储数据，使得一个页能容纳更多索引值，从而降低树的高度
+- B+树的内部节点仅存储索引，不存储数据，使得一个页能容纳更多索引值，从而降低树的高度，减少了磁盘IO的次数
 - B+树的叶子节点是双向链表，适合范围查询
 
 
 
+## 为什么用B+树不用跳表
+
+
+
+
+
+
+
+## 为什么MongoDB索引使用B树，而MySQL使用B+树
+
+那么在查找单条数据时，B 树的查询效率可能会更高，因为每个节点都存储数据，所以最好情况就是 O(1)。
+
+但由于 B 树的节点之间没有指针链接，所以并不适合做范围查询，因为范围查询需要遍历多个节点。
+
+
+
+- MySQL 属于关系型数据库，所以范围查询会比较多，所以采用了 B+树；
+-  MongoDB 属于非关系型数据库，在大多数情况下，只需要查询单条数据，所以 MongoDB 选择了 B 树。
+
+
+
+## 一棵B+树能存储多少条数据
+
+![清幽之地：B+树存储数据条数](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/mysql-16f3523d-20b0-4376-908d-ac40b329768f.jpg)
+
+- 假设主键ID是bigint类型，8字节
+
+- 指针大小在InnoDB中设置为6字节
+
+所以非叶子节点(一页16k)可以存储 16384/14=1170 个这样的单元(键值+指针)。
+
+- 每条记录1kB，一页可以放16条记录
+
+一个指针指向一个存放记录的页，一页可以放 16 条数据，树深度为 2 的时候，可以存放 1170*16=**18720** 条数据。
+
+同理，树深度为 3 的时候，可以存储的数据为 1170\*1170\*16=**21902400**条记录。
+
+
+
+
+
 ## 索引分为哪几类
+
+功能分类
 
 **1. 主键索引**
 
@@ -861,7 +911,7 @@ explain select * from students where id =9
 
 - UNIQUE修饰，默认自动创建
 
-**3. 常规索引**
+**3. 普通索引**
 
 **4. 全文索引**
 
@@ -871,18 +921,18 @@ explain select * from students where id =9
 
 在InnoDB存储引擎中，根据索引的存储形式，又可以分为以下两种：
 
-**1. 聚集索引**
+**1.聚簇索引**
 
 - 索引结构的叶子节点保存了行数据
 - 必须有，而且只能有一个
 
-**2. 二级索引**
+**2. 非聚簇索引**
 
 - 索引结构的叶子节点关联的是对应的主键
 
   
 
- **回表查询**：先根据二级索引查找到主键的值，再根据聚集索引拿到这行的值
+ **回表查询**：先根据非聚簇索引查找到主键的值，再根据聚簇索引拿到这行的值
 
 
 
@@ -895,6 +945,10 @@ explain select * from students where id =9
 如果跳跃某一列，**索引将部分失效（后面的字段索引失效）**
 
 范围查询(>，<)右侧的列索引失效，尽量使用>= 和 <=
+
+- 为什么范围查询会使右侧索引失效
+  - 假设索引是(age, salary)
+  - 因为 `salary` 只有在 `age` 固定时是有序的，而 `age > 25` 时，我们的查询数据可能来自不同的 `age` 段，`salary` 在不同 `age` 组之间没有顺序！
 
 
 
@@ -929,15 +983,24 @@ select * from tb_user where age=31 and status='0' and profession='软件工程'
 
 
 
+## 索引不适合哪些场景
+
+- 数据表较小，直接全表扫描
+- 频繁更新的列
+- 低区分度的列上的索引
+  - 区分度 = 字段的唯一值数量 / 字段的总记录数
+
+- 使用函数、运算符的字段
+
+
+
 ## 什么是覆盖索引
 
-查询使用了索引，并且需要返回的列，在该索引中已经全部能够找到，不需要回表查询（避免select *）
+将查询的字段都放在索引中，查询使用了索引，并且需要返回的列，在该索引中已经全部能够找到，不需要回表查询（避免select *）
 
 ```sql
 CREATE INDEX idx_xxx ON table_name(colunm(n))
 ```
-
-
 
 
 
@@ -947,15 +1010,43 @@ CREATE INDEX idx_xxx ON table_name(colunm(n))
 
 此时可以只将字符串的一部分前缀建立索引，这样可以大大节约索引空间，从而提高索引效率。
 
-![image-20250205123433179](https://github.com/user-attachments/assets/9df1e7cf-fa91-4600-b268-ef74ba48fb50)
-
+![image-20250205123433179](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250205123433179.png)
 
 
 
 ## 联合索引的数据结构
 
-![image-20250205124033059](https://github.com/user-attachments/assets/e7df1d22-994d-455e-92fa-ecc19d3d25ee)
+![三分恶面渣逆袭：联合索引](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/mysql-e348203c-f00a-42a4-a745-b219d98ea435.jpg)
 
+name 是有序的，age 是无序的。当 name 相等的时候，age 才有序。
+
+当我们使用 `where name= '张三' and age = '20'` 去查询的时候， B+ 树会优先比较 name 来确定下一步应该搜索的方向，往左还是往右。
+
+如果 name 相同的时候再比较 age。
+
+但如果查询条件没有 name，就不知道应该怎么查了，因为 name 是 B+树中的前置条件，没有 name，索引就派不上用场了。
+
+
+
+## 索引优化的思路
+
+- 选择合适的索引类型
+  - 等值查询或者范围查询，使用B+树
+  - 文本数据的全文搜索，选择全文索引
+
+- 创建适当的索引，尽量使用覆盖索引
+
+
+
+## 什么是索引下推优化
+
+传统索引扫描时，MySQL 只利用索引做**主键查找**，然后再回表检查 **`WHERE` 条件**。
+
+**索引下推优化**允许 MySQL 在**索引遍历阶段提前过滤不符合 `WHERE` 条件的数据**，**减少回表次数，提高查询速度！**
+
+![三分恶面渣逆袭：没有使用 ICP](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/mysql-c58f59e0-850b-4dfd-8129-2dfc51cf4768.jpg)
+
+![三分恶面渣逆袭：使用 ICP](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/mysql-a8525cf3-2d16-49a9-a7da-a19762ed16df.jpg)
 
 
 

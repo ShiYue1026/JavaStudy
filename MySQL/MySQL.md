@@ -387,6 +387,574 @@ MySQL 是以表的形式存储数据的，而表空间的结构则由段、区�
 
 
 
+# 存储引擎
+
+## 什么是存储引擎
+
+![存储引擎](https://cdn.tobebetterjavaer.com/stutymore/mysql-20240408073338.png)
+
+存储引擎就是存储数据、建立索引、更新/查询数据等技术的实现方式
+
+存储引擎是基于表的，不是基于库的，因此存储引擎也可被称为表类型
+
+
+
+## InnoDB存储引擎是什么
+
+在MySQL5.5之后，InnoDB是默认的MySQL存储引擎
+
+**特点**：
+
+- DML操作遵循ACID模型，支持**事务**
+- **行级锁**，提高并发访问性能
+- 支持**外键**FOREIGN KEY约束，保证数据的完整性和正确性
+
+**文件**：
+
+- xxx.ibd：xxx代表的表名，innoDB引擎的每张表都会对应这样一个表空间文件，存储该表的表结构、数据和缩影
+
+**逻辑存储结构**：
+
+![不要迷恋发哥：段、区、页、行](https://cdn.tobebetterjavaer.com/stutymore/mysql-20240515110034.png)
+
+页的大小是16KB，区的大小是1MB
+
+
+
+## MyISAM存储引擎是什么
+
+MyISAM是MySQL早期的默认存储引擎
+
+**特点**：
+
+- 不支持事务，不支持外键
+- 支持表锁，不支持行锁
+- 访问速度快
+
+**文件**：
+
+- xxx.sdi：存储表结构信息
+- xxx.MYD：存储数据
+- xxx.MYI：存储索引
+
+
+
+## 如何选择合适的存储引擎
+
+**InnoDB**：
+
+- 如果应用对事物的完整性有比较高的要求，在并发条件下要求数据的一致性，数据操作除了插入和查询之外，还包含很多的更新、删除操作，那么选择InnoDB
+
+**MyISAM**:
+
+- 如果应用是以读操作和插入操作为主，并且对事物的完整性、并发性要求不是很高，那么可以选择MyISAM（日志、电商中的足迹、评论数据）
+- 被mongoDB替代
+
+**MEMORY**:
+
+- 将所有数据保存在内存中，访问速度快，通常用于临时表及缓存
+- 被Redis替代
+
+
+
+## MyISAM和InnoDB有什么区别
+
+- 存储格式不同
+- 事务支持
+  - MyISAM不支持事务
+- 最小锁粒度
+  - MyISAM是表级锁，高并发中写操作存在性能瓶颈
+  - InnoDB是行级锁，并发写入性能高
+
+- 外键支持
+  - MyISAM不支持外键
+
+- 索引类型
+  - MyISAM没有聚簇索引，是非聚簇索引，索引和数据分开存储，索引保存的是数据文件的指针
+
+- 主键必需
+  - MyISAM表可以没有主键
+
+- 表的具体行数
+  - MyISAM表的具体行数存储在表的属性种，查询时直接返回
+  - InnoDB表的具体行数需要扫描整个表才能返回
+
+
+
+## InnoDB的Buffer Pool了解吗
+
+![图片来源于网络](https://cdn.tobebetterjavaer.com/stutymore/mysql-20241104200915.png)
+
+Buffer Pool 是 InnoDB 存储引擎中的一个内存缓冲区，它会将数据以页（page）的单位保存在内存中，当查询请求需要读取数据时，优先从 Buffer Pool 获取数据，避免直接访问磁盘。
+
+- 修改数据时，也会先在缓存页面中修改。当数据页被修改后，会在 Buffer Pool 中变为脏页。
+- 脏页不会立刻写回到磁盘。
+
+- InnoDB 会定期将这些脏页刷新到磁盘，保证数据的一致性。通常采用改良的 LRU 算法来管理缓存页，也就是将最近最少使用的数据移出缓存，为新数据腾出空间。
+
+
+
+# 日志
+
+## MySQL的日志文件有哪些
+
+![三分恶面渣逆袭：MySQL的主要日志](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/mysql-c0ef6e68-bb33-48fc-b3a2-b9cdadd8e403.jpg)
+
+**1. 错误日志**
+
+- 记录MySQL服务器启动、运行或停止时出现的问题
+
+**2. 慢查询日志**
+
+- 记录执行时间超过 long_query_time 值的所有 SQL 语句。这个时间值是可配置的，默认情况下，慢查询日志功能是关闭的。
+
+**3. 一般查询日志**
+
+- 记录所有 MySQL 服务器的连接信息及所有的 SQL 语句，不论这些语句是否修改了数据。
+
+**4. binlog**
+
+- 记录了所有修改数据库状态的 SQL 语句，以及每个语句的执行时间，如 INSERT、UPDATE、DELETE 等，但不包括 SELECT 和 SHOW 这类的操作。
+
+**5. redo log**
+
+- 记录了对于 InnoDB 表的每个写操作，不是 SQL 级别的，而是物理级别的，主要用于崩溃恢复。
+
+**6. undo log**
+
+- 记录数据被修改前的值，用于事务的回滚
+
+
+
+## binlog是干什么的
+
+binlog 是一种物理日志，会在磁盘上记录下数据库的所有修改操作，以便进行数据恢复和主从复制。
+
+- 当发生数据丢失时，binlog 可以将数据库恢复到特定的时间点。
+- 主服务器（master）上的二进制日志可以被从服务器（slave）读取，从而实现数据同步。
+
+
+
+**binlog三种模式**：
+
+- statement模式
+  - 记录的是数据库执行的原生sql语句
+  - 二进制日志文件最小，性能最高
+  - 容易出现主从不一致的问题（uuid(), now()等函数）
+
+- row模式
+  - 记录的是数据行的更改情况，即数据行在更改前、更改后的变化情况
+  - 二进制日志文件最大，性能较低
+- mixed模式
+  - statement + row
+
+
+
+## 有了binlog为什么还要undolog redolog
+
+- binlog 是 MySQL Server 层提供的日志，独立于存储引擎。
+
+- redo log 主要用于数据持久化和崩溃恢复。redo log 是 InnoDB 存储引擎特有的日志，用于记录数据的物理修改，确保数据库在崩溃或异常宕机后能够恢复到一致状态。
+- undo log 主要用于支持事务回滚和多版本并发控制（MVCC）。undo log 是 InnoDB 存储引擎提供的逻辑日志，用于记录数据的逻辑操作，如删除、更新前的数据快照。
+
+
+
+## 什么是binlog和redolog的两阶段提交
+
+保证主从一致性
+
+```perl
+1. redo log: "UPDATE users SET age = 30 WHERE id = 1; (prepare)"
+2. binlog: "UPDATE users SET age = 30 WHERE id = 1;"
+3. redo log: "UPDATE users SET age = 30 WHERE id = 1; (commit)"
+```
+
+1. 先写 `redo log`（prepare），保证数据可以恢复。
+
+2. 再写 `binlog`，保证主从复制数据一致。
+
+3. 最后提交 `redo log`（commit），确保事务最终持久化。
+
+这样，即使最后redolog提交失败了，数据库也能根据binlog是否提交重新提交redolog
+
+`binlog` 是主从复制 & 增量恢复的依据，只要 `binlog` 里有事务提交，就说明事务应该是成功的，所以 MySQL 可以补交 `redo log`。
+
+
+
+## 什么是WAL
+
+WAL（Write-Ahead Logging）的思想是**先写日志，再写数据**，即在对数据进行任何修改之前，必须先将修改的日志记录（redo log）持久化到磁盘。
+
+通过先写日志，确保系统在发生故障时可以通过重做日志恢复数据。
+
+
+
+# SQL优化
+
+## 慢SQL怎么定位
+
+通过启用慢查询日志，记录那些超过指定执行时间的查询
+
+```sql
+SET GLOBAL slow_query_log = ON;
+```
+
+设置慢查询阈值
+
+```sql
+SET GLOBAL long_query_time = 1;  # 记录执行时间超过 1 秒的 SQL
+```
+
+使用 EXPLAIN 查看查询执行计划，判断查询是否使用了索引，是否有全表扫描等
+
+```sql
+EXPLAIN SELECT * FROM your_table WHERE conditions;
+```
+
+最后，根据分析结果，通过添加或优化索引、调整查询语句或者增加内存缓冲区来优化 SQL
+
+
+
+## show profiles是什么
+
+show profiles能够在做SQL优化时帮助我们了解时间都耗费到哪里去了
+
+
+
+启动show profiles
+
+```sql
+SET profiling = 1;
+```
+
+查看指定query_id的SQL语句各个阶段的耗时情况
+
+```sql
+show profile for query query_id
+```
+
+
+
+
+
+## 有哪些优化SQL的方式
+
+**1. 避免不必要的列**
+
+- 尽量避免使用 `select *`，只查询需要的列，减少数据传输量
+
+**2. 分页优化**
+
+当数据量巨大时，传统的`LIMIT`和`OFFSET`可能会导致性能问题，因为数据库需要扫描`OFFSET + LIMIT`数量的行。
+
+- 延迟关联
+
+  ```sql
+  SELECT e.id, e.name, d.details
+  FROM employees e
+  JOIN department d ON e.department_id = d.id
+  ORDER BY e.id
+  LIMIT 1000, 20;
+  ```
+
+  改为
+
+  ```sql
+  SELECT e.id, e.name, d.details
+  FROM (
+      SELECT id
+      FROM employees
+      ORDER BY id
+      LIMIT 1000, 20
+  ) AS sub
+  JOIN employees e ON sub.id = e.id
+  JOIN department d ON e.department_id = d.id;
+  ```
+
+- 书签
+
+  书签方法通过记住上一次查询返回的最后一行的某个值，然后下一次查询从这个值开始，避免了扫描大量不需要的行。
+
+  ```sql
+  SELECT id, name
+  FROM users
+  WHERE id > last_max_id  -- 假设last_max_id是上一页最后一行的ID
+  ORDER BY id
+  LIMIT 20;
+  ```
+
+**3. 索引优化**
+
+- 利用覆盖索引
+
+  使用非主键索引查询数据时需要回表，但如果索引的叶节点中已经包含要查询的字段，那就不会再回表查询了，这就叫覆盖索引。
+
+  ```sql
+  select name from test where city='上海'
+  ```
+
+  改为
+
+  ```sql
+  alter table test add index index1(city,name);
+  ```
+
+- 避免使用 != 或 <>操作符
+
+  `!=` 或者 `<>` 操作符会导致 MySQL 无法使用索引，从而导致全表扫描。
+
+  例如，可以把`column<>'aaa'`，改成`column>'aaa' or column<'aaa'`，就可以使用索引了。
+
+- 避免列上使用函数，会导致索引失效
+
+- 最左前缀原则，应该按照查询中的字段顺序来创建索引。
+
+**JOIN优化**
+
+- 优化子查询
+
+  子查询，特别是在 select 列表和 where 子句中的子查询，往往会导致性能问题，因为它们可能会为每一行外层查询执行一次子查询。
+
+  ```sql
+  select name from A where id in (select id from B);
+  ```
+
+  改为
+
+  ```sql
+  select A.name from A join B on A.id=B.id;
+  ```
+
+- 小表驱动大表
+
+  - 假设一张表10条，另一张表100万条，join
+
+    - 小表驱动大表：
+
+      对每一行小表的数据，在大表中查找匹配记录（假设有索引）
+
+      **总查找次数 ≈ 10 × log(100万)**
+
+    - 大表驱动小表
+
+      **总查找次数 ≈ 100万 × log(10) ≈ 100万**
+
+      
+
+**如何进行排序优化**
+
+- 如果 name 字段上有索引，那么 MySQL 可以直接利用索引的有序性，避免排序操作
+
+
+
+## 怎么查看执行计划explain
+
+在 select 语句前加上 `explain` 关键字就可以了
+
+```sql
+explain select * from students where id =9
+```
+
+**type列**：表示 MySQL 在表中找到所需行的方式，性能从最优到最差分别为：system > const > eq_ref > ref > range > index > ALL。
+
+- system：表只有一行，一般是系统表，往往不需要进行磁盘 IO，速度非常快
+
+- const：表中只有一行匹配，或通过主键或唯一索引获取单行记录。通常用于使用主键或唯一索引的精确匹配查询，性能非常高。
+
+  ```sql
+  SELECT * FROM users WHERE id = 5;
+  ```
+
+- eq_ref： 唯一索引（PRIMARY KEY 或 UNIQUE KEY）的等值查询，被驱动表的每一行最多匹配一条记录，通常出现在 JOIN 查询 中
+
+  ```sql
+  SELECT * 
+  FROM orders o 
+  JOIN users u ON o.user_id = u.id;  -- u.id是PRIMARY KEY
+  ```
+
+- ref：非唯一索引，意味着 查询可能返回多行，但仍然是基于索引查找。
+
+  ```sql
+  SELECT * FROM products WHERE category = 'Electronics';
+  ```
+
+- range：只检索给定范围的行，使用索引来检索。在`where`语句中使用 `bettween...and`、`<`、`>`、`<=`、`in` 等条件查询 `type` 都是 `range`。
+
+- index：全索引扫描，即扫描整个索引而不访问数据行。
+
+- ALL：全表扫描，效率最低。
+
+**possible key列**：可能会用到的索引
+
+**key列**：实际使用的索引
+
+**key_len列**：MySQL 决定使用的索引长度（以字节为单位）。当表有多个索引可用时，key_len 字段可以帮助识别哪个索引最有效。通常情况下，更短的 key_len 意味着数据库在比较键值时需要处理更少的数据。
+
+
+
+# 索引
+
+## 什么是索引
+
+索引（index）是帮助MySQL高效获取数据的数据结构（有序）
+
+索引是在引擎层实现的
+
+**优点**：
+
+- 提高查询效率
+- 提高排序效率
+
+**缺点**：
+
+- 索引也是要占空间的
+- 降低了更新表的速度
+
+
+
+## 索引的数据结构
+
+**二叉搜索树**：
+
+- 顺序插入时，会形成一个链表，查询性能大大降低。
+- 大数据量下，层级较深，相当于全表扫描
+- 二叉树最多两个节点，层数较深
+
+**红黑树**
+
+- 二叉树，大数据量下，层级较深，检索速度慢
+
+**B树**
+
+![image-20250205103856150](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250205103856150.png)
+
+- n个key会有n+1个指针
+- 每个key下面都会有数据
+
+**B+树**
+
+![一颗剽悍的种子：B+树的结构](https://cdn.tobebetterjavaer.com/stutymore/mysql-20240312092745.png)
+
+- 所有key都会出现在叶子节点
+
+- 叶子节点形成一个单向链表
+
+
+
+## 为什么用B+树作为索引而不用B树
+
+- B+树的内部节点仅存储索引，不存储数据，使得一个页能容纳更多索引值，从而降低树的高度
+- B+树的叶子节点是双向链表，适合范围查询
+
+
+
+## 索引分为哪几类
+
+**1. 主键索引**
+
+- PRIMARY修饰，默认自动创建
+
+**2. 唯一索引**
+
+- UNIQUE修饰，默认自动创建
+
+**3. 常规索引**
+
+**4. 全文索引**
+
+- FULLTEXT修饰，默认自动创建
+
+
+
+在InnoDB存储引擎中，根据索引的存储形式，又可以分为以下两种：
+
+**1. 聚集索引**
+
+- 索引结构的叶子节点保存了行数据
+- 必须有，而且只能有一个
+
+**2. 二级索引**
+
+- 索引结构的叶子节点关联的是对应的主键
+
+  
+
+ **回表查询**：先根据二级索引查找到主键的值，再根据聚集索引拿到这行的值
+
+
+
+## 什么是最左前缀法则
+
+如果索引了多列（联合索引），要遵守最左前缀法则。
+
+最左前缀法则指的是查询从索引的最左列开始，并且不跳过索引中的列。
+
+如果跳跃某一列，**索引将部分失效（后面的字段索引失效）**
+
+范围查询(>，<)右侧的列索引失效，尽量使用>= 和 <=
+
+
+
+只要索引的最左列存在就好，顺序无所谓，如
+
+- 索引（profession, age, status）
+
+```sql
+select * from tb_user where age=31 and status='0' and profession='软件工程'
+```
+
+这条能用到所有索引
+
+
+
+## 索引失效还有什么情况
+
+**1. 违反最左前缀法则**
+
+**2. 在索引列上进行运算或函数**
+
+**3. 字符串不加引号**
+
+**4. 模糊匹配**
+
+- 尾部模糊匹配，索引不失效（like ‘软件%’）
+- 头部模糊匹配，索引失效（like ‘%软件’）
+
+**5. or分隔开的条件必须都有索引，否则索引失效**
+
+**6. MySQL评估使用索引比全表慢，不走索引**
+
+
+
+## 什么是覆盖索引
+
+查询使用了索引，并且需要返回的列，在该索引中已经全部能够找到，不需要回表查询（避免select *）
+
+```sql
+CREATE INDEX idx_xxx ON table_name(colunm(n))
+```
+
+
+
+
+
+## 什么是前缀索引
+
+当字段类型为字符串（varchar、text等）时，有时需要索引很长的字符串，这会让索引变得很大，查询时，浪费大量的磁盘IO，影响查询效率。
+
+此时可以只将字符串的一部分前缀建立索引，这样可以大大节约索引空间，从而提高索引效率。
+
+![image-20250205123433179](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250205123433179.png)
+
+
+
+## 联合索引的数据结构
+
+![image-20250205124033059](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250205124033059.png)
+
+
+
 
 
 # 事务
@@ -519,76 +1087,6 @@ MySQL通过事务、undo log、redo log来确保ACID
 
 - Read Committed：每次select，都生成一个快照读，保证每次读操作都是最新的数据
 - Repeatable Read：开启事务后第一个select语句才是生成快照读的地方，后续读操作都使用这个 ReadView，保证事务内读取的数据是一致的
-
-
-
-# 存储引擎
-
-## 什么是存储引擎
-
-存储引擎就是存储数据、建立索引、更新/查询数据等技术的实现方式
-
-存储引擎是基于表的，不是基于库的，因此存储引擎也可被称为表类型
-
-
-
-## InnoDB存储引擎是什么
-
-在MySQL5.5之后，InnoDB是默认的MySQL存储引擎
-
-**特点**：
-
-- DML操作遵循ACID模型，支持**事务**
-- **行级锁**，提高并发访问性能
-- 支持**外键**FOREIGN KEY约束，保证数据的完整性和正确性
-
-**文件**：
-
-- xxx.ibd：xxx代表的表名，innoDB引擎的每张表都会对应这样一个表空间文件，存储该表的表结构、数据和缩影
-
-**逻辑存储结构**：
-
-![不要迷恋发哥：段、区、页、行](https://cdn.tobebetterjavaer.com/stutymore/mysql-20240515110034.png)
-
-页的大小是16KB，区的大小是1MB
-
-
-
-## MyISAM存储引擎是什么
-
-MyISAM是MySQL早期的默认存储引擎
-
-**特点**：
-
-- 不支持事务，不支持外键
-- 支持表锁，不支持行锁
-- 访问速度快
-
-**文件**：
-
-- xxx.sdi：存储表结构信息
-- xxx.MYD：存储数据
-- xxx.MYI：存储索引
-
-
-
-## 如何选择合适的存储引擎
-
-**InnoDB**：
-
-- 如果应用对事物的完整性有比较高的要求，在并发条件下要求数据的一致性，数据操作除了插入和查询之外，还包含很多的更新、删除操作，那么选择InnoDB
-
-**MyISAM**:
-
-- 如果应用是以读操作和插入操作为主，并且对事物的完整性、并发性要求不是很高，那么可以选择MyISAM（日志、电商中的足迹、评论数据）
-- 被mongoDB替代
-
-**MEMORY**:
-
-- 将所有数据保存在内存中，访问速度快，通常用于临时表及缓存
-- 被Redis替代
-
-
 
 
 

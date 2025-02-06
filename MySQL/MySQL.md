@@ -334,7 +334,8 @@ name  age users  CONDITION
 
 ## MySQL体系结构
 
-![image-20250204134527182](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250204134527182.png)
+![image-20250204134527182](https://github.com/user-attachments/assets/806b1c7b-de71-44d6-807d-8ad4e969c2c0)
+
 
 - 连接层
   - 完成一些类似于连接处理、授权认证、及相关的安全方案
@@ -848,7 +849,8 @@ explain select * from students where id =9
 
 **B树**
 
-![image-20250205103856150](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250205103856150.png)
+![image-20250205103856150](https://github.com/user-attachments/assets/28ef9889-dd3b-4276-b1bf-7723529451eb)
+
 
 - n个key会有n+1个指针
 - 每个key下面都会有数据
@@ -1022,7 +1024,8 @@ CREATE INDEX idx_xxx ON table_name(colunm(n))
 
 此时可以只将字符串的一部分前缀建立索引，这样可以大大节约索引空间，从而提高索引效率。
 
-![image-20250205123433179](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250205123433179.png)
+![image-20250205123433179](https://github.com/user-attachments/assets/16581430-346b-4e5c-a7d3-3470198700ad)
+
 
 
 
@@ -1144,7 +1147,7 @@ name 是有序的，age 是无序的。当 name 相等的时候，age 才有序�
 
 MySQL 默认行锁类型就是临键锁。当使用唯一性索引，等值查询匹配到一条记录的时候，临键锁会退化成记录锁；没有匹配到任何记录的时候，退化成间隙锁。
 
-![image-20250206115855577](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206115855577.png)
+![image-20250206115855577](https://github.com/user-attachments/assets/82089332-1cc3-426d-84ef-7a9ebd934f92)
 
 
 
@@ -1410,7 +1413,8 @@ MySQL通过事务、undo log、redo log来确保ACID
 
 ## 雪花算法了解吗
 
-![image-20250205223554822](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250205223554822.png)
+![image-20250205223554822](https://github.com/user-attachments/assets/0b16d09e-2b56-4d4d-b2d2-5c20e32c741a)
+
 
 - 第一个部分：`1个bit`，无意义，固定为0。二进制中最高位是符号位，1表示负数，0表示正数。ID都是正整数，所以固定为0。
 - 第二个部分：`41个bit`，表示时间戳，精确到毫秒，2^41/(1000_60_60_24_365)=69，大概可以使用 69 年。时间戳带有自增属性。

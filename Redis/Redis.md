@@ -92,7 +92,8 @@ Redis一共有八种数据类型
 
 阻塞IO就是等待数据就绪（从磁盘拷贝到用户的缓冲区）和读取数据（从用户的缓冲区）两个阶段都必须阻塞等待
 
-![image-20250206134735377](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206134735377.png)
+![image-20250206134735377](https://github.com/user-attachments/assets/90abd8d0-2fec-4733-b2a6-24d205380eb3)
+
 
 
 
@@ -100,7 +101,8 @@ Redis一共有八种数据类型
 
 非阻塞IO的recvfrom操作会立即返回结果而不是阻塞用户进程，第二阶段数据拷贝的时候还是阻塞的
 
-![image-20250206134927654](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206134927654.png)
+![image-20250206134927654](https://github.com/user-attachments/assets/c42670ef-98f0-4d96-a8a5-aa9726bfe13a)
+
 
 
 
@@ -121,7 +123,8 @@ Redis一共有八种数据类型
 
 
 
-![image-20250206141456276](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206141456276.png)
+![image-20250206141456276](https://github.com/user-attachments/assets/0d134340-579f-46c3-bb1e-5d6324a8cd34)
+
 
 
 
@@ -139,7 +142,8 @@ epoll则会在通知用户进程FD就绪的同时，把已就绪的FD写入用�
 
 **select**
 
-![image-20250206155415228](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206155415228.png)
+![image-20250206155415228](https://github.com/user-attachments/assets/c8fda273-b0fe-4d85-b127-22e654d86674)
+
 
 - 需要将整个fd_set从用户空间拷贝到内核空间，select结束后还要再次拷贝回用户空间
 - select无法直接得知哪个fd就绪，需要遍历整个fd_set
@@ -147,7 +151,8 @@ epoll则会在通知用户进程FD就绪的同时，把已就绪的FD写入用�
 
 **poll**
 
-![image-20250206160158647](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206160158647.png)
+![image-20250206160158647](https://github.com/user-attachments/assets/5106b88e-6741-4471-9598-498185ec8120)
+
 
 - poll模式对select模式做了简单改进，但性能提升不影响
 
@@ -156,7 +161,9 @@ epoll则会在通知用户进程FD就绪的同时，把已就绪的FD写入用�
 
 **epoll**
 
-![image-20250206160857431](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206160857431.png)
+![image-20250206160857431](https://github.com/user-attachments/assets/485c7417-b707-4bca-8b89-57a0e8993c63)
+
+
 
 - 内核空间只拷贝就绪的FD到用户空间的指定位置
 - 用户空间只需遍历就绪的fd，不用遍历所有FD
@@ -220,19 +227,22 @@ RDB全程Redis Database Backup file（Redis数据备份文件），也被叫做R
 
 简单来说就是把内存中的所有数据都记录到磁盘中，当Redis实例故障重启后，从磁盘读取快照文件，恢复数据。
 
-![image-20250206223920746](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206223920746.png)
+![image-20250206223920746](https://github.com/user-attachments/assets/92b13b81-9a7b-49f6-8ee5-14f4e29aab62)
 
 - Redis主动停机时会自动执行一次RDB
 
-![image-20250206224344711](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206224344711.png)
+![image-20250206224344711](https://github.com/user-attachments/assets/270c961c-d11f-4dc8-b944-5f3ebd8220f5)
+
 
 - Redis内部有触发RDB的机制可以在redis.conf文件中找到，格式如下：
 
-  ![image-20250206224550325](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206224550325.png)
+  ![image-20250206224550325](https://github.com/user-attachments/assets/c236e276-de27-447c-9108-b6aa657e26ba)
+
 
 - RDB的其它配置也可以在redis.conf文件中设置：
 
-  ![image-20250206224757743](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206224757743.png)
+  ![image-20250206224757743](https://github.com/user-attachments/assets/40729d88-095d-4d98-b08e-ad0aa43b92af)
+
 
 
 
@@ -249,7 +259,8 @@ RDB全程Redis Database Backup file（Redis数据备份文件），也被叫做R
 
 bgsave开始时会fork主进程得到子进程，子进程共享主进程的内存数据，完成fork后读取内存数据并写入RDB文件
 
-![image-20250206230114561](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206230114561.png)
+![image-20250206230114561](https://github.com/user-attachments/assets/ba28013a-5d2c-4699-82e1-02444eef8435)
+
 
 - 主进程将自己的页表（虚拟内存到物理内存的映射）拷贝给子进程
 
@@ -264,27 +275,33 @@ bgsave开始时会fork主进程得到子进程，子进程共享主进程的内�
 
 AOF全称为Append Only File（追加文件），Redis处理的每一个写命令都会记录在AOF文件，可以看作是命令日志文件。
 
-![image-20250206230522729](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206230522729.png)
+![image-20250206230522729](https://github.com/user-attachments/assets/e5da5b16-b19a-4269-9e63-af7a31bec8e6)
+
 
 - AOF默认是关闭的，需要修改redis.conf配置文件来开启AOF
 
-  ![image-20250206230551874](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206230551874.png)
+  ![image-20250206230551874](https://github.com/user-attachments/assets/3e2b0e7b-6684-4718-ba03-6b0856994806)
+
 
 - AOF的命令记录的频率也可以通过redis.conf文件来配置
 
-  ![image-20250206230638198](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206230638198.png)
+  ![image-20250206230638198](https://github.com/user-attachments/assets/fc22611b-ca2f-425e-8b98-8692d3b062c0)
 
-![image-20250206230710896](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206230710896.png)
+
+![image-20250206230710896](https://github.com/user-attachments/assets/5936aadf-a4a9-4b3a-b42b-baac2afcb19b)
+
 
 
 
 - 因为是记录命令，AOF文件会比RDB文件大得多，而且AOF会记录对同一个key的多次写操作，但只有最后一次写操作才有意义。通过执行`bgrewriteaof`命令，可以让AOF文件执行重写功能，用最少的命令达到相同效果。
 
-​	![image-20250206231122418](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206231122418.png)
+​	![image-20250206231122418](https://github.com/user-attachments/assets/02ba8d7a-7244-46cd-b129-f2cdb9e34d21)
+
 
 - Redis也会在触发阈值时自动去重写AOF文件，阈值也可以在redis.conf中配置
 
-  ![image-20250206231256847](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206231256847.png)
+  ![image-20250206231256847](https://github.com/user-attachments/assets/ee13878e-a2ad-43f5-89f2-4684be598ae0)
+
 
 
 
@@ -312,7 +329,8 @@ AOF最大优点是灵活，实时性好，可以设置不同的 fsync 策略，�
 
 ## RDB和AOF如何选择
 
-![image-20250206233418655](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250206233418655.png)
+![image-20250206233418655](https://github.com/user-attachments/assets/b86a78ea-d65d-49cc-847e-5312ea993167)
+
 
 
 
@@ -385,11 +403,13 @@ AOF最大优点是灵活，实时性好，可以设置不同的 fsync 策略，�
 
 主从第一次同步是**全量同步**:
 
-![image-20250207110022142](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250207110022142.png)
+![image-20250207110022142](https://github.com/user-attachments/assets/36f25af3-98bb-4268-8b40-95fae3e6d6b0)
+
 
 但如果slave重启后同步，则执行**增量同步**：
 
-![image-20250207110509172](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250207110509172.png)
+![image-20250207110509172](https://github.com/user-attachments/assets/42d90177-278d-4d15-a9ca-4244d873a4be)
+
 
 repl_baklog大小有上限，写满后会覆盖最早的数据。如果slave断开时间过久，导致尚未备份的数据被覆盖，则无法基于log做增量同步，只能再次全量同步
 
@@ -452,13 +472,15 @@ Redis 的脑裂问题是指在主从模式或集群模式下，由于网络分�
 
 - 限制一个master上的slave节点数量，如果实在太多slave，可以采用主-从-从链式结构减轻master压力
 
-  ![image-20250207111033638](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250207111033638.png)
+  ![image-20250207111033638](https://github.com/user-attachments/assets/f156dbd1-96af-47e5-8861-fc467ca68b97)
+
 
 
 
 ## Redis的哨兵模式是什么
 
-![image-20250207111353918](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250207111353918.png)
+![image-20250207111353918](https://github.com/user-attachments/assets/4b7db478-152d-447f-8771-7de8068d586b)
+
 
 Sentinel基于心跳机制监测服务状态，每隔1秒向集群的每个实例发送ping命令
 
@@ -469,7 +491,8 @@ Sentinel基于心跳机制监测服务状态，每隔1秒向集群的每个实�
 
 ## 哨兵模式如何实现故障转移
 
-![image-20250207112054081](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250207112054081.png)
+![image-20250207112054081](https://github.com/user-attachments/assets/d1e1f300-e35b-40e3-ac68-7b9ecbff7c3a)
+
 
 
 
@@ -512,7 +535,8 @@ CRC16 是一种哈希算法，它可以将任意长度的输入数据映射为�
 
 - Redis会把每一个master节点映射到0~16383共16384个插槽上
 
-![image-20250207114839491](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250207114839491.png)
+![image-20250207114839491](https://github.com/user-attachments/assets/b64a0084-44de-4bb1-9251-22b7db57324b)
+
 
 
 
@@ -601,7 +625,8 @@ CRC16 是一种哈希算法，它可以将任意长度的输入数据映射为�
 
 - 逻辑过期：不设置过期时间
 
-  ![image-20250207125127446](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250207125127446.png)
+  ![image-20250207125127446](https://github.com/user-attachments/assets/5deef1bd-d774-4c14-918c-32cec4b48941)
+
 
 
 

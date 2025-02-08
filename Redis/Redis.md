@@ -998,7 +998,7 @@ Redis 是一个基于内存的数据存储系统，其设计重点是实现高�
 
 - Redis 事务不支持回滚，一旦 EXEC 命令被调用，所有命令都会被执行，即使有些命令可能执行失败。
 
-  ![image-20250208125515280](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250208125515280.png)
+  ![image-20250208125515280](https://github.com/user-attachments/assets/ce8308ac-3df9-46d3-9c1f-55f996359c4b)
 
 **一致性**
 
@@ -1077,7 +1077,8 @@ Redis 的底层数据结构有**动态字符串(sds)**、**链表(list)**、**�
 
 ![img](https://upload-images.jianshu.io/upload_images/19063731-3852cc36af701f46.jpeg?imageMogr2/auto-orient/strip|imageView2/2/w/1142/format/webp)
 
-![image-20250208113436096](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250208113436096.png)
+![image-20250208113436096](https://github.com/user-attachments/assets/7786c9d9-cf57-4d46-a4bc-f0520a1bb10b)
+
 
 
 
@@ -1085,7 +1086,8 @@ Redis 的底层数据结构有**动态字符串(sds)**、**链表(list)**、**�
 
 Redis中的任意数据类型的键和值都会被封装为一个RedisObject，也叫做Redis对象
 
-![image-20250208103504940](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250208103504940.png)
+![image-20250208103504940](https://github.com/user-attachments/assets/b2b6a6ab-3305-42c2-8cee-2c14ce2520b0)
+
 
 Redis头部（除了ptr的部分）占了16个字节
 
@@ -1095,15 +1097,16 @@ Redis头部（除了ptr的部分）占了16个字节
 
 - 基本编码方式是**RAW**，基于简单动态字符串（SDS）实现，存储上限为512mb
 
-  ![image-20250208103926863](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250208103926863.png)
+  ![image-20250208103926863](https://github.com/user-attachments/assets/c76eddcf-1971-4876-a760-2830a984005b)
 
 - 如果存储的SDS长度小于44字节，则会采用**EMBSTR**编码，此时object head与SDS是一段连续空间，申请内存时只需要调用一次内存分配函数，效率更高
 
-  ![image-20250208104109601](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250208104109601.png)
+  ![image-20250208104109601](https://github.com/user-attachments/assets/acf0b7e1-9b9c-47dd-bd56-57ff54156dbb)
 
 - 如果数据是数字，则会采用**INT**编码，直接使用ptr存储数据
 
-  ![image-20250208104528042](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250208104528042.png)
+  ![image-20250208104528042](https://github.com/user-attachments/assets/214f1bca-05eb-4bef-a9d4-c4734a01b79a)
+
 
 
 
@@ -1127,7 +1130,8 @@ Redis的优势：
 
 - 在3.2版本之后，Redis统一采用**QuickList**来实现List，QuickList是LinkedList和ZipList的结合，每个LinkerdList的节点是ZipList
 
-  ![image-20250208105509917](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250208105509917.png)
+  ![image-20250208105509917](https://github.com/user-attachments/assets/8bc9a7a0-f267-4461-9286-f953b6d2390d)
+
 
 
 
@@ -1135,22 +1139,25 @@ Redis的优势：
 
 - 为了查询效率和唯一性，set采用**HT编码（Dict）**，Dict中的key用来存储元素，value统一为null
 
-  ![image-20250208110353422](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250208110353422.png)
+  ![image-20250208110353422](https://github.com/user-attachments/assets/8d4cf1d8-ed11-4367-9b8e-5913edb7ce84)
+
 
 - 当存储的所有数据都是整数，并且元素数量不超过阈值时，Set会采用**IntSet编码**
 
-  ![image-20250208110251161](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250208110251161.png)
+  ![image-20250208110251161](https://github.com/user-attachments/assets/abc08dac-773a-43b4-9e11-1d5700c980f1)
+
 
 ## Redis的ZSet数据类型的底层结构
 
 - **SkipList**：可以排序，并且可以同时存储score和ele值
 - **HT(Dict)**：可以键值存储，并且可以根据key找value
 
-![image-20250208111000777](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250208111000777.png)
+![image-20250208111000777](https://github.com/user-attachments/assets/28cdc4ea-f245-468e-ac94-5e1e8af50db6)
 
 - 当元素数量不多时，HT和SkipList的优势不明显，而且更耗内存，因此会采用ZipList来节省内存
 
-![image-20250208111213693](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250208111213693.png)
+![image-20250208111213693](https://github.com/user-attachments/assets/702d994d-3a30-4e2a-9535-e70275399ed8)
+
 
 
 
@@ -1158,11 +1165,13 @@ Redis的优势：
 
 - Hash结构默认采用ZipList编码，用以节省内存
 
-  ![image-20250208111635417](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250208111635417.png)
+  ![image-20250208111635417](https://github.com/user-attachments/assets/a5882560-41c0-48e2-b6ad-70d5cbf753df)
+
 
 - 当数据量较大时，Hash结构会转为HT编码，也就是Dict
 
-  ![image-20250208111717847](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250208111717847.png)
+  ![image-20250208111717847](https://github.com/user-attachments/assets/378f6861-774f-4828-95b9-07d0becab58c)
+
 
   
 

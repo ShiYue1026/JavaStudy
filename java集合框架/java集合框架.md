@@ -256,22 +256,18 @@ JDK8中HashMap的数据结构是**数组+链表+红黑树**
 
     ![image-20250209124205439](https://github.com/user-attachments/assets/e3711ef2-88e4-4e58-971c-817f572e97a7)
 
+![image-20250209124223068](https://github.com/user-attachments/assets/aa66f020-74c6-4e8f-8e9b-b744c91ce245)
 
-    ![image-20250209124223068](https://github.com/user-attachments/assets/aa66f020-74c6-4e8f-8e9b-b744c91ce245)
-
-
-    ![image-20250209124248563](https://github.com/user-attachments/assets/b2492dea-6468-4b54-b01d-1bfaffcebc30)
+![image-20250209124248563](https://github.com/user-attachments/assets/b2492dea-6468-4b54-b01d-1bfaffcebc30)
 
 
   - **RR型**
 
     ![image-20250209124300269](https://github.com/user-attachments/assets/9bed35f2-825a-4170-8025-2e2049728d12)
 
+![image-20250209124314613](https://github.com/user-attachments/assets/60dd64df-fce7-46a6-a6fd-d4996b2034a9)
 
-    ![image-20250209124314613](https://github.com/user-attachments/assets/60dd64df-fce7-46a6-a6fd-d4996b2034a9)
-
-
-    ![image-20250209124336050](https://github.com/user-attachments/assets/4e554624-99a5-423a-b21f-bf346102d7ca)
+![image-20250209124336050](https://github.com/user-attachments/assets/4e554624-99a5-423a-b21f-bf346102d7ca)
 
 
 
@@ -279,33 +275,27 @@ JDK8中HashMap的数据结构是**数组+链表+红黑树**
 
     ![image-20250209124406486](https://github.com/user-attachments/assets/7d2338de-b3e9-442f-93b9-8b62c364a24e)
 
+![image-20250209124440414](https://github.com/user-attachments/assets/4dc42c99-936b-42b7-9f90-574049b1b8a1)
 
-    ![image-20250209124440414](https://github.com/user-attachments/assets/4dc42c99-936b-42b7-9f90-574049b1b8a1)
+![image-20250209124450097](https://github.com/user-attachments/assets/76b909b1-c1e1-4001-9c26-aa289c348026)
 
-
-    ![image-20250209124450097](https://github.com/user-attachments/assets/76b909b1-c1e1-4001-9c26-aa289c348026)
-
-
-    ![image-20250209124506273](https://github.com/user-attachments/assets/ea5be996-8881-49cd-af6c-02b83b9528d2)
+![image-20250209124506273](https://github.com/user-attachments/assets/ea5be996-8881-49cd-af6c-02b83b9528d2)
 
 
-    
+​    
 
   - **RL型**
 
     ![image-20250209124532887](https://github.com/user-attachments/assets/bb34286c-4b43-4cfa-859e-1840e518d33b)
 
+![image-20250209124548063](https://github.com/user-attachments/assets/81fc7cea-8af7-4ddd-a494-3cf4ec6feece)
 
-    ![image-20250209124548063](https://github.com/user-attachments/assets/81fc7cea-8af7-4ddd-a494-3cf4ec6feece)
+![image-20250209124602507](https://github.com/user-attachments/assets/22ddcac8-1dd0-4692-86a7-010ac19983ab)
 
-
-    ![image-20250209124602507](https://github.com/user-attachments/assets/22ddcac8-1dd0-4692-86a7-010ac19983ab)
-
-
-    ![image-20250209124613327](https://github.com/user-attachments/assets/e3d2c5d7-e5ea-4555-9f2b-7c4b55a3a3b1)
+![image-20250209124613327](https://github.com/user-attachments/assets/e3d2c5d7-e5ea-4555-9f2b-7c4b55a3a3b1)
 
 
-    
+​    
 
 
 

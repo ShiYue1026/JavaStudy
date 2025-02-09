@@ -458,3 +458,303 @@ static final int hash(Object key) {
 ## 为什么HashMap的容量是2 的整数次幂呢
 
 为了使两个运算 `hash & (length - 1)`替换`hash % length` 。在计算机中，位运算的速度要远高于取余运算，因为计算机本质上就是二进制。
+
+
+
+## 如果初始化HashMap，传一个17容量，它会怎么处理
+
+HashMap会将这个值转换为大于或等于17的最小的2的幂。
+
+因此，如果传入 17 作为初始容量，HashMap 实际上会被初始化为大小为 32 的哈希表。
+
+
+
+在 HashMap 的初始化构造方法中，有这样⼀段代码：
+
+```java
+public HashMap(int initialCapacity, float loadFactor) {
+ ...
+ this.loadFactor = loadFactor;
+ this.threshold = tableSizeFor(initialCapacity);
+}
+```
+
+阀值 threshold 会通过方法` tableSizeFor()` 进行计算。
+
+```java
+static final int tableSizeFor(int cap) {
+    int n = cap - 1;
+    n |= n >>> 1;
+    n |= n >>> 2;
+    n |= n >>> 4;
+    n |= n >>> 8;
+    n |= n >>> 16;
+    return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
+}
+```
+
+ n 的所有低位都是 1，所以 n + 1 就是大于 cap 的最小的 2 的幂次方。
+
+
+
+## 初始化HashMap的时候需要传入容量值吗
+
+在创建 HashMap 时可以指定初始容量值。这个容量是指 Map 内部用于存储数据的数组大小。
+
+如果预先知道 Map 将存储大量键值对，提前指定一个足够大的初始容量可以**减少因扩容导致的重哈希（rehashing）操作**，从而提高性能。
+
+因为每次扩容时，HashMap 需要新分配一个更大的数组并重新将现有的元素插入到这个新数组中，这个过程相对耗时，尤其是当 Map 中已有大量数据时。
+
+当然了，过大的初始容量会浪费内存，特别是当实际存储的元素远少于初始容量时。**如果不指定初始容量，HashMap 将使用默认的初始容量 16**。
+
+
+
+## 还知道哪些哈希函数的构造方法
+
+**1. 除留取余法（HashMap中的方法）**
+
+**2. 直接定址法**
+
+- 直接根据`key`来映射到对应的数组位置，例如 1232 放到下标 1232 的位置。
+
+**3. 数字分析法**
+
+- 取`key`的某些数字（例如十位和百位）作为映射的位置
+
+**4. 平方取中法**
+
+- 取`key`平方的中间几位作为映射的位置
+
+**5. 折叠法**
+
+- 将`key`分割成位数相同的几段，然后把它们的叠加和作为映射的位置
+
+**6. 一致性哈希**
+
+
+
+## 解决哈希冲突有哪些方法
+
+**1. 再哈希法**
+
+- 准备两套哈希算法，当发生哈希冲突的时候，使用另外一种哈希算法，直到找到空槽为止。对哈希算法的设计要求比较高。
+
+**2. 开放地址法**
+
+- 遇到哈希冲突的时候，就去寻找下一个空的槽。有 3 种方法：
+  - 线性探测：从冲突的位置开始，依次往后找，直到找到空槽。
+  - 二次探测：从冲突的位置 x 开始，第一次增加 12 个位置，第二次增加 22，直到找到空槽。
+  - 双重哈希：和再哈希法类似，准备多个哈希函数，发生冲突的时候，使用另外一个哈希函数。
+
+**3. 拉链法**
+
+- 当发生哈希冲突的时候，使用链表将冲突的元素串起来。HashMap 采用的正是拉链法。
+
+
+
+## 哈希表怎么判断两个Key是否相等
+
+依赖于`key`的`equals()`方法和`hashCode()`方法，以及 `==` 运算符。
+
+```java
+if (e.hash == hash &&
+((k = e.key) == key || (key != null && key.equals(k))))
+```
+
+- `e.hash == hash`：先比较哈希值，确保可能是相同的键。
+
+- **`k == key`**：直接使用 `==` 比较**内存地址**。
+
+- **`key.equals(k)`**：如果 `key` 不是 `null`，再调用 `equals()` 方法进行**内容比较**。
+
+
+
+## 为什么HashMap链表转红黑树的阈值是8
+
+树化发生在 table **数组的长度大于 64**，且**链表的长度大于 8** 的时候。
+
+红黑树节点的大小大概是普通节点大小的两倍，所以转红黑树，牺牲了空间换时间，更多的是一种兜底的策略，保证极端情况下的查找效率。
+
+**阈值为什么要选 8 呢？**
+
+和统计学有关。理想情况下，使用随机哈希码，链表里的节点符合泊松分布，出现节点个数的概率是递减的，节点个数为 8 的情况，发生概率仅为`0.00000006`。
+
+**红黑树转回链表的阈值为什么是6，而不是8？**
+
+如果这个阈值也设置成 8，假如发生碰撞，节点增减刚好在 8 附近，会发生链表和红黑树的不断转换，导致资源浪费。
+
+
+
+## 什么时候扩容，为什么扩容因子是0.75？
+
+HashMap会在存储的键值对数量超过 **容量 $\times$ 扩容因子** 时进行扩容
+
+**0.75是时间复杂度和空间利用率之间的权衡**
+
+- 负载因子越大
+  - 空间利用率越高
+  - 但冲突概率增大，导致链表/红黑树长度增长，查询效率从O(1)退化 到O(N)
+- 负载因子越小
+  - 冲突减少，查询更快
+  - 但扩容更频繁，内存浪费严重
+
+
+
+## 扩容机制了解吗
+
+扩容时，HashMap 会创建一个新的数组，其容量是原数组容量的两倍。然后将键值对放到新计算出的索引位置上。**一部分索引不变，另一部分索引为“原索引+旧容量”**。
+
+```java
+static final int hash(Object key) {
+    int h;
+    return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
+}
+```
+
+在 JDK 8 的新 hash 算法下，数组扩容后的索引位置，要么就是原来的索引位置，要么就是“原索引+原来的容量”，遵循一定的规律。
+
+![三分恶面渣逆袭：扩容节点迁移示意图](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/collection-27.png)
+
+这种规则**仅通过 `hash & oldCapacity` 判断**，不需要重新计算 `hashCode()`，提升效率。
+
+
+
+## 扩容的时候每个节点都要进行位运算吗，如果这个HashMap中有几十万条数据，都要进行位运算吗
+
+在 JDK 8 的新 hash 算法下，数组扩容后的索引位置，要么就是原来的索引位置，要么就是“原索引+原来的容量”，遵循一定的规律。
+
+具体来说，就是判断原哈希值的高位中新增的那一位是否为 1，如果是，该元素会被移动到原位置加上旧容量的位置；如果不是，则保持在原位置。
+
+**仅通过 `hash & oldCapacity` 即可判断**
+
+- 当 `hash & oldCapacity == 0`：
+  - **新索引 = 旧索引**
+
+- 当 `hash & oldCapacity != 0`：
+  - 新索引 = 旧索引 + oldCapacity
+
+所以，尽管有几十万条数据，每个数据项的位置决定仅需要一次简单的位运算。位运算的计算速度非常快，因此，尽管扩容操作涉及遍历整个哈希表并对每个节点进行操作，但这部分操作的计算成本是相对较低的。
+
+
+
+## JDK8对HashMap主要做了哪些优化？为什么
+
+**1. 底层数据结构由 数组 + 链表 改成了 数组 + 链表 / 红黑树**
+
+**2. 链表的插入方式由 头插法 改为了 尾插法**
+
+**3. 扩容的时机由 插入时判断 改为了 插入后判断**
+
+- putVal() **先执行插入**，保证数据先存进去，即使发生扩容，也不会影响当前插入操作。
+
+**4. 优化了哈希算法**
+
+- JDK7：多次移位和异或操作
+
+  ![二哥的 Java 进阶之路：JDK 7 的 hash 方法](https://cdn.tobebetterjavaer.com/stutymore/collection-20240512093223.png)
+
+- JDK8：只进行了一次异或操作，但仍能有效地减少冲突。并且能够保证扩容后，元素的新位置要么是原位置，要么是原位置加上旧容量大小。
+
+  ![二哥的 Java 进阶之路：JDK 8 的 hash 方法](https://cdn.tobebetterjavaer.com/stutymore/collection-20240512093327.png)
+
+
+
+## 你能自己设计实现一个HashMap吗
+
+略
+
+
+
+## HashMap是线程安全的吗？多线程下会有什么问题
+
+HashMap不是线程安全的，主要有以下几个问题：
+
+**1. 多线程下扩容会死循环**
+
+![二哥的 Java 进阶之路](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/collection/hashmap-thread-nosafe-07.png)
+
+- JDK1.7 中的 HashMap 使用的是头插法插入元素，在多线程的环境下，扩容的时候就有可能导致出现环形链表，造成死循环。
+
+**2. 多线程的put可能会导致元素丢失**
+
+- 因为计算出来的位置可能会被其他线程的 put 覆盖。本来哈希冲突是应该用链表的，但多线程时由于没有加锁，相同位置的元素可能就被干掉了。
+
+**3. put和get并发时，可能导致get为null**
+
+
+
+## 有什么办法能解决HashMap线程不安全问题呢
+
+**1. Hashtable**
+
+- Hashtable 是 Map 接口的一个早期的同步实现，它的**所有方法都是同步的**，即每个方法都用 synchronized 关键字修饰，以确保线程安全。
+
+**2. Collection.synchronizedMap**
+
+内部是通过 synchronized 对象锁来保证线程安全的。
+
+**3. ConcurrentHashMap**
+
+ConcurrentHashMap 在 JDK 7 中使用了**分段锁**来保证线程安全，在 JDK 8 中使用了**CAS + synchronized** 关键字。
+
+
+
+## HashMap内部节点是有序的吗
+
+HashMap 是无序的，根据 hash 值随机插入。如果想使用有序的 Map，可以使用 LinkedHashMap 或者 TreeMap。
+
+
+
+## LinkedHashMap怎么实现有序的
+
+LinkedHashMap 维护了 **数组 + 双向链表**，每个Node有头尾节点，同时 LinkedHashMap 节点 Entry 内部除了继承 HashMap 的 Node 属性，还有 before 和 after 用于标识前置节点和后置节点。
+
+![Entry节点](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/collection-33.png)
+
+![LinkedHashMap实现原理](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/collection-34.png)
+
+
+
+## TreeMap怎么实现的有序
+
+TreeMap 通过 key 的比较器来决定元素的顺序，如果没有指定比较器，那么 key 必须实现Comparable 接口。
+
+TreeMap 的底层是**红黑树**，红黑树是一种自平衡的二叉查找树，每个节点都大于其左子树中的任何节点，小于其右子节点树种的任何节点。
+
+![三分恶面渣逆袭：TreeMap](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/collection-35.png)
+
+插入或者删除元素时通过旋转和着色来保持树的平衡。
+
+
+
+## TreeMap和HashMap的区别
+
+①、HashMap 是基于数组+链表+红黑树实现的，put 元素的时候会先计算 key 的哈希值，然后通过哈希值计算出元素在数组中的存放下标，然后将元素插入到指定的位置，如果发生哈希冲突，会使用链表来解决，如果链表长度大于 8，会转换为红黑树。
+
+②、TreeMap 是基于红黑树实现的，put 元素的时候会先判断根节点是否为空，如果为空，直接插入到根节点，如果不为空，会通过 key 的比较器来判断元素应该插入到左子树还是右子树。
+
+- 在没有发生哈希冲突的情况下，HashMap 的查找效率是 `O(1)`。适用于查找操作比较频繁的场景。
+
+- TreeMap 的查找效率是 `O(logn)`。并且保证了元素的顺序，因此适用于需要大量范围查找或者有序遍历的场景。
+
+
+
+# Set
+
+## HashSet的底层实现
+
+HashSet 其实是由 HashMap 实现的，只不过值由一个固定的 Object 对象填充，而键用于操作。
+
+```java
+public class HashSet<E>
+    extends AbstractSet<E>
+    implements Set<E>, Cloneable, java.io.Serializable
+{
+    static final long serialVersionUID = -5024744406713321676L;
+    private transient HashMap<E,Object> map;
+    // Dummy value to associate with an Object in the backing Map
+    private static final Object PRESENT = new Object();
+    // ……
+}
+```
+

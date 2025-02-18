@@ -1007,3 +1007,536 @@ AspectJ 属于**静态织入**，通过修改代码来实现，在实际运行�
 
 
 
+# 事务
+
+Spring事务的本质其实就是数据库对事务的支持，没有数据库的事务支持，Spring是无法提供事务功能的。Spring只提供统一事务管理接口，具体实现都是由各数据库自己实现，数据库事务的提交和回滚是通过数据库自己的事务机制实现。
+
+
+
+## Spring事务的种类
+
+在Spring中，事务管理可以分为两大类：
+
+- 编程式事务管理
+- 声明式事务管理
+
+
+
+**编程式事务管理**
+
+编程式事务可以使用 TransactionTemplate 和 PlatformTransactionManager 来实现，需要显式执行事务。允许我们在代码中直接控制事务的边界，通过编程方式明确指定事务的开始、提交和回滚。
+
+```java
+public class AccountService {
+    private TransactionTemplate transactionTemplate;
+
+    public void setTransactionTemplate(TransactionTemplate transactionTemplate) {
+        this.transactionTemplate = transactionTemplate;
+    }
+
+    public void transfer(final String out, final String in, final Double money) {
+        transactionTemplate.execute(new TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(TransactionStatus status) {
+                // 转出
+                accountDao.outMoney(out, money);
+                // 转入
+                accountDao.inMoney(in, money);
+            }
+        });
+    }
+}
+```
+
+
+
+**声明式事务管理**
+
+声明式事务是建立在 AOP 之上的。其本质是通过 AOP 功能，对方法前后进行拦截，将事务处理的功能编织到拦截的方法中，也就是在目标方法开始之前启动一个事务，在目标方法执行完之后根据执行情况提交或者回滚事务。
+
+相比较编程式事务，优点是**不需要在业务逻辑代码中掺杂事务管理的代码**，Spring 推荐通过 @Transactional 注解的方式来实现声明式事务管理，也是日常开发中最常用的。
+
+不足的地方是，声明式事务管理最细粒度只能作用到方法级别，无法像编程式事务那样可以作用到代码块级别。
+
+
+
+## 说说Spring的事务隔离级别
+
+事务的隔离级别定义了一个事务可能受其他并发事务影响的程度。SQL 标准定义了四个隔离级别，Spring 都支持，并且提供了对应的机制来配置它们，定义在 TransactionDefinition 接口中。
+
+
+
+- ISOLATION_DEFAULT：使用数据库默认的隔离级别，MySQL 默认的是可重复读，Oracle 默认的读已提交。
+- ISOLATION_READ_UNCOMMITTED：读未提交，允许事务读取未被其他事务提交的更改。这是隔离级别最低的设置，可能会导致“脏读”问题。
+- ISOLATION_READ_COMMITTED：读已提交，确保事务只能读取已经被其他事务提交的更改。这可以防止“脏读”，但仍然可能发生“不可重复读”和“幻读”问题。
+- ISOLATION_REPEATABLE_READ：可重复读，确保事务可以多次从一个字段中读取相同的值，即在这个事务内，其他事务无法更改这个字段，从而避免了“不可重复读”，但仍可能发生“幻读”问题。
+- ISOLATION_SERIALIZABLE：串行化，这是最高的隔离级别，它完全隔离了事务，确保事务序列化执行，以此来避免“脏读”、“不可重复读”和“幻读”问题，但性能影响也最大。
+
+
+
+## Spring的事务传播机制
+
+事务传播机制是指当一个事务方法调用另一个事务方法时，Spring 如何管理它们的事务关系。Spring 通过 `@Transactional(propagation = Propagation.XXX)` 来控制事务的传播方式。
+
+![image-20250218111009342](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250218111009342.png)
+
+Spring 的默认传播行为是 PROPAGATION_REQUIRED，即如果当前存在事务，则加入该事务；如果当前没有事务，则创建一个新的事务。
+
+
+
+事务传播机制是使用 ThreadLocal 实现的，所以，如果调用的方法是在新线程中，事务传播会失效。
+
+```java
+@Transactional
+public void parentMethod() {
+    new Thread(() -> childMethod()).start();
+}
+
+public void childMethod() {
+    // 这里的操作将不会在 parentMethod 的事务范围内执行
+}
+```
+
+
+
+## protected和private方法加事务注解会生效吗
+
+在 Spring 中，**只有通过 Spring 容器的 AOP 代理调用的公开方法（public method）上的`@Transactional`注解才会生效**。
+
+如果在 protected、private 方法上使用`@Transactional`，这些事务注解将不会生效，原因：Spring 默认使用基于 JDK 的动态代理（当接口存在时）或基于 CGLIB 的代理（当只有类时）来实现事务。这两种代理机制都只能代理公开的方法。
+
+
+
+## 声明式事务实现原理了解吗
+
+Spring 的声明式事务管理是通过 AOP（面向切面编程）和代理机制实现的。
+
+
+
+Spring 事务管理主要由 `TransactionInterceptor` + `TransactionManager` 组成，AOP 代理拦截 `@Transactional` 方法，最终调用 `TransactionManager` 进行事务管理。
+
+
+
+**1. 在Bean初始化阶段创建代理对象**
+
+- Spring 容器在初始化单例 Bean 的时候，会遍历所有的 `BeanPostProcessor` 实现类，并执行其 `postProcessAfterInitialization` 方法。
+
+- 在执行 `postProcessAfterInitialization` 方法时会遍历容器中所有的切面，查找与当前 Bean 匹配的切面，这里会获取事务的属性切面，也就是 `@Transactional` 注解及其属性值。
+
+
+
+**2. 在执行目标方法时进行事务增强操作**
+
+当通过代理对象调用 Bean 方法的时候，会触发对应的 AOP 增强拦截器，声明式事务是一种环绕增强，对应接口为`MethodInterceptor`，事务增强对该接口的实现为`TransactionInterceptor`
+
+事务拦截器`TransactionInterceptor`在`invoke`方法中，通过调用父类`TransactionAspectSupport`的`invokeWithinTransaction`方法进行事务处理，包括开启事务、事务提交、异常回滚等。
+
+
+
+## 声明式事务在哪些情况下会失效
+
+**1. @Transactional注解应用在非public修饰的方法上**
+
+**2. @Transactional注解属性propagation设置错误**
+
+- 适应PROPAGATION_NOT_SUPPORTED或者PROPAGATION_NEVER
+
+**3. @Transactional注解属性rollbackFor设置错误**
+
+- Spring 默认抛出未检查 unchecked 异常（继承自 RuntimeException 的异常）或者 Error 才回滚事务，其他异常不会触发回滚事务。
+
+**4. 使用this.method() 调用自身 @Transactional方法**
+
+```java
+@Service
+public class OrderService {
+    @Transactional
+    public void createOrder() {
+        this.insertLog(); // ❌ 事务失效（直接调用，不经过代理）
+    }
+
+    @Transactional
+    public void insertLog() { 
+        logRepository.save(new Log("订单日志"));
+        throw new RuntimeException("插入日志失败");
+    }
+}
+```
+
+**5. Spring 事务基于 AOP 代理，非 Spring 管理的 Bean 不会被代理**
+
+**6.如果在 @Transactional 方法内自己 catch了异常，Spring不会检测到异常的传播，事务不会触发回滚**
+
+```java
+@Service
+public class OrderService {
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Transactional
+    public void createOrder() {
+        orderRepository.save(new Order());
+
+        try {
+            int result = 1 / 0; // 除零异常
+        } catch (Exception e) {
+            System.out.println("异常被捕获：" + e.getMessage());
+            // ❌ 事务不会回滚，因为 Spring 没有检测到异常
+        }
+    }
+}
+```
+
+
+
+# MVC
+
+## Spring MVC的核心组件
+
+1. **DispatcherServlet**：前置控制器，是整个流程控制的**核心**，控制其他组件的执行，进行统一调度，降低组件之间的耦合性，相当于总指挥。
+2. **Handler**：处理器，完成具体的业务逻辑，相当于 Servlet 或 Action。
+3. **HandlerMapping**：DispatcherServlet 接收到请求之后，通过 HandlerMapping 将不同的请求映射到不同的 Handler。
+4. **HandlerInterceptor**：处理器拦截器，是一个接口，如果需要完成一些拦截处理，可以实现该接口。
+5. **HandlerExecutionChain**：处理器执行链，包括两部分内容：Handler 和 HandlerInterceptor（系统会有一个默认的 HandlerInterceptor，如果需要额外设置拦截，可以添加拦截器）。
+6. **HandlerAdapter**：处理器适配器，Handler 执行业务方法之前，需要进行一系列的操作，包括表单数据的验证、数据类型的转换、将表单数据封装到 JavaBean 等，这些操作都是由 HandlerApater 来完成，开发者只需将注意力集中业务逻辑的处理上，DispatcherServlet 通过 HandlerAdapter 执行不同的 Handler。
+7. **ModelAndView**：装载了模型数据和视图信息，作为 Handler 的处理结果，返回给 DispatcherServlet。
+8. **ViewResolver**：视图解析器，DispatcheServlet 通过它将逻辑视图解析为物理视图，最终将渲染结果响应给客户端。
+
+
+
+## Spring MVC的工作流程
+
+![三分恶面渣逆袭：Spring MVC的工作流程](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/spring-e29a122b-db07-48b8-8289-7251032e87a1.png)
+
+首先，客户端发送请求，DispatcherServlet 拦截并通过 HandlerMapping 找到对应的控制器。
+
+DispatcherServlet 使用 HandlerAdapter 调用控制器方法，执行具体的业务逻辑，返回一个 ModelAndView 对象。
+
+然后 DispatcherServlet 通过 ViewResolver 解析视图。
+
+最后，DispatcherServlet 渲染视图并将响应返回给客户端。
+
+
+
+## Handler是什么？为什么需要HandlerAdapter
+
+Handler 一般就是指 Controller，Controller 是 Spring MVC 的核心组件，负责处理请求，返回响应。
+
+Spring MVC 允许使用多种类型的处理器。不仅仅是标准的`@Controller`注解的类，还可以是实现了特定接口的其他类（如 HttpRequestHandler 或 SimpleControllerHandlerAdapter 等）。这些处理器可能有不同的方法签名和交互方式。
+
+HandlerAdapter 的主要职责就是调用 Handler 的方法来处理请求，并且适配不同类型的处理器。HandlerAdapter 确保 DispatcherServlet 可以以统一的方式调用不同类型的处理器，无需关心具体的执行细节。
+
+
+
+## Spring MVC的Restful风格的接口的流程是什么样的
+
+我们都知道 Restful 接口，响应格式是 json，这就用到了一个常用注解：**@ResponseBody**
+
+```java
+    @GetMapping("/user")
+    @ResponseBody
+    public User user(){
+        return new User(1,"张三");
+    }
+```
+
+![Spring MVC Restful请求响应示意图](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/spring-2da963a0-5da9-4b3a-aafd-fd8dbc7e1807.png)
+
+1. 客户端向服务端发送一次请求，这个请求会先到前端控制器 DispatcherServlet
+
+2. DispatcherServlet 接收到请求后会调用 HandlerMapping 处理器映射器。由此得知，该请求该由哪个 Controller 来处理
+
+3. DispatcherServlet 调用 HandlerAdapter 处理器适配器，告诉处理器适配器应该要去执行哪个 Controller
+
+4. Controller 被封装成了 ServletInvocableHandlerMethod，HandlerAdapter 处理器适配器去执行 invokeAndHandle 方法，完成对 Controller 的请求处理
+
+5. HandlerAdapter 执行完对 Controller 的请求，会调用 HandlerMethodReturnValueHandler 去处理返回值，主要的过程：
+
+   5.1. 调用 RequestResponseBodyMethodProcessor，创建 ServletServerHttpResponse（Spring 对原生 ServerHttpResponse 的封装）实例
+
+   5.2.使用 HttpMessageConverter 的 write 方法，将返回值写入 ServletServerHttpResponse 的 OutputStream 输出流中
+
+   5.3.在写入的过程中，会使用 JsonGenerator（默认使用 Jackson 框架）对返回值进行 Json 序列化
+
+6. 执行完请求后，返回的 ModealAndView 为 null，ServletServerHttpResponse 里也已经写入了响应，所以不用关心 View 的处理
+
+
+
+# Spring Boot
+
+## 介绍一下SpringBoot，有哪些优点
+
+Spring Boot 的优点非常多，比如说：
+
+1. Spring Boot 内嵌了 Tomcat、Jetty、Undertow 等容器，直接运行 jar 包就可以启动项目。
+2. Spring Boot 内置了 Starter 和自动装配，避免繁琐的手动配置。例如，如果项目中添加了 spring-boot-starter-web，Spring Boot 会自动配置 Tomcat 和 Spring MVC。
+3. Spring Boot 内置了 Actuator 和 DevTools，便于调试和监控。
+
+
+
+## Spring Boot核心注解
+
+![image-20250218115451450](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250218115451450.png)
+
+
+
+## Spring Boot自动配置原理了解吗
+
+![三分恶面渣逆袭：SpringBoot自动配置原理](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/spring-df77ee15-2ff0-4ec7-8e65-e4ebb8ba88f1.png)
+
+**自动配置文件**
+
+所有`spring-boot-starter-x`的组件配置都是放在`spring-boot-autoconfigura`的组件中的
+
+![img](https://pic4.zhimg.com/v2-0f26d2001be785a479cfefbd5a78b023_1440w.jpg)
+
+这里有个spring.factories的文件，翻译一下就是spring的工厂
+
+![img](https://pic1.zhimg.com/v2-9c08877c31063353953370cefd67fc20_1440w.jpg)
+
+以很明显的看到最下面有个自动配置的注释，key还是个`EnableAutoConfiguration`，开启自动配置！
+
+
+
+**SpringBootApplication注解**
+
+![img](https://picx.zhimg.com/v2-99f1362346bbd80407ec08aaf4f452a5_1440w.jpg)
+
+进入@SpringBootApplication注解会发现@EnableAutoConfiguration注解
+
+![img](https://pica.zhimg.com/v2-934dedae2c6426c2215b78c7a3d5ebe8_1440w.jpg)
+
+进入@EnableAutoConfiguration注解，内存存在@Import注解，并且Import了一个Selector
+
+**selectImports**
+
+```java
+@Override
+public String[] selectImports(AnnotationMetadata annotationMetadata) {
+  if (!isEnabled(annotationMetadata)) {
+    return NO_IMPORTS;
+  }
+  AutoConfigurationEntry autoConfigurationEntry = getAutoConfigurationEntry(annotationMetadata);
+  return StringUtils.toStringArray(autoConfigurationEntry.getConfigurations());
+}
+```
+
+**getAutoConfigurationEntry**
+
+```java
+protected AutoConfigurationEntry getAutoConfigurationEntry(AnnotationMetadata annotationMetadata) {
+  if (!isEnabled(annotationMetadata)) {
+    return EMPTY_ENTRY;
+  }
+  AnnotationAttributes attributes = getAttributes(annotationMetadata);
+  // 获取候选的配置类
+  List<String> configurations = getCandidateConfigurations(annotationMetadata, attributes);
+  // 移除重复的配置
+  configurations = removeDuplicates(configurations);
+  // 获取到要排除的配置
+  Set<String> exclusions = getExclusions(annotationMetadata, attributes);
+  checkExcludedClasses(configurations, exclusions);
+  // 移除所有要排除的配置
+  configurations.removeAll(exclusions);
+  // 过滤掉不具备注入条件的配置类，通过Conditional注解
+  configurations = getConfigurationClassFilter().filter(configurations);
+  // 通知自动配置相关的监听器
+  fireAutoConfigurationImportEvents(configurations, exclusions);
+  // 返回所有自动配置类
+  return new AutoConfigurationEntry(configurations, exclusions);
+}
+```
+
+主要看看是如何从配置文件读取的
+
+**getCandidateConfigurations**
+
+```java
+protected List<String> getCandidateConfigurations(AnnotationMetadata metadata, AnnotationAttributes attributes) {
+  // 这里就是关键，使用SpringFactoriesLoader加载所有配置类，是不是像我们SPI的ServicesLoader
+  List<String> configurations = SpringFactoriesLoader.loadFactoryNames(getSpringFactoriesLoaderFactoryClass(),
+                                                                       getBeanClassLoader());
+  Assert.notEmpty(configurations, "No auto configuration classes found in META-INF/spring.factories. If you "
+                  + "are using a custom packaging, make sure that file is correct.");
+  return configurations;
+}
+```
+
+**getSpringFactoriesLoaderFactoryClass**
+
+```java
+protected Class<?> getSpringFactoriesLoaderFactoryClass() {
+  return EnableAutoConfiguration.class;
+}
+```
+
+结合上一步，就是加载配置文件，并且读取key为EnableAutoConfiguration的配置
+
+**loadFactoryNames**
+
+```java
+public static List<String> loadFactoryNames(Class<?> factoryType, @Nullable ClassLoader classLoader) {
+  String factoryTypeName = factoryType.getName();
+  return loadSpringFactories(classLoader).getOrDefault(factoryTypeName, Collections.emptyList());
+}
+
+private static Map<String, List<String>> loadSpringFactories(@Nullable ClassLoader classLoader) {
+
+  try {
+    // FACTORIES_RESOURCE_LOCATION的值为：META-INF/spring.factories
+    // 这步就是意味中读取classpath下的META-INF/spring.factories文件
+    Enumeration<URL> urls = (classLoader != null ?
+                             classLoader.getResources(FACTORIES_RESOURCE_LOCATION) :
+                             ClassLoader.getSystemResources(FACTORIES_RESOURCE_LOCATION));
+    // 接下来就是读取出文件内容，封装成map的操作了
+    result = new LinkedMultiValueMap<>();
+    while (urls.hasMoreElements()) {
+      URL url = urls.nextElement();
+      UrlResource resource = new UrlResource(url);
+      Properties properties = PropertiesLoaderUtils.loadProperties(resource);
+      for (Map.Entry<?, ?> entry : properties.entrySet()) {
+        String factoryTypeName = ((String) entry.getKey()).trim();
+        for (String factoryImplementationName : StringUtils.commaDelimitedListToStringArray((String) entry.getValue())) {
+          result.add(factoryTypeName, factoryImplementationName.trim());
+        }
+      }
+    }
+    cache.put(classLoader, result);
+    return result;
+  }
+  catch (IOException ex) {
+    throw new IllegalArgumentException("Unable to load factories from location [" +
+                                       FACTORIES_RESOURCE_LOCATION + "]", ex);
+  }
+}
+```
+
+
+
+## SpringBoot Starter的原理了解吗
+
+Spring Boot Starter 主要通过**起步依赖**和**自动配置**机制来简化项目的构建和配置过程。
+
+- 起步依赖是 Spring Boot 提供的一组预定义依赖项，它们将一组相关的库和模块打包在一起。比如 `spring-boot-starter-web` 就包含了 Spring MVC、Tomcat 和 Jackson 等依赖。
+- 自动配置机制是 Spring Boot 的核心特性，通过自动扫描类路径下的类、资源文件和配置文件，自动创建和配置应用程序所需的 Bean 和组件。
+
+
+
+比如有了 `spring-boot-starter-web`，我们开发者就不需要再手动配置 Tomcat、Spring MVC 等，Spring Boot 会自动帮我们完成这些工作。
+
+
+
+## Spring Boot启动原理了解吗
+
+Spring Boot 的启动由 SpringApplication 类负责：
+
+- 第一步，创建 SpringApplication 实例，负责应用的启动和初始化；
+- 第二步，从 application.yml 中加载配置文件和环境变量；
+- 第三步，创建上下文环境 ApplicationContext，并加载 Bean，完成依赖注入；
+- 第四步，启动内嵌的 Web 容器。
+- 第五步，发布启动完成事件 ApplicationReadyEvent，并调用 ApplicationRunner 的 run 方法完成启动后的逻辑。
+
+
+
+![image-20250218122736537](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250218122736537.png)
+
+
+
+## 了解@SpringBootApplication注解吗
+
+`@SpringBootApplication`是 Spring Boot 的核心注解，经常用于主类上，作为项目启动入口的标识。它是一个组合注解：
+
+- `@SpringBootConfiguration`：继承自 `@Configuration`，标注该类是一个配置类，相当于一个 Spring 配置文件。
+- `@EnableAutoConfiguration`：告诉 Spring Boot 根据 pom.xml 中添加的依赖自动配置项目。例如，如果 spring-boot-starter-web 依赖被添加到项目中，Spring Boot 会自动配置 Tomcat 和 Spring MVC。
+- `@ComponentScan`：扫描当前包及其子包下被`@Component`、`@Service`、`@Controller`、`@Repository` 注解标记的类，并注册为 Spring Bean。
+
+
+
+## 为什么Spring Boot在启动的时候能够找到main方法上的@SpringBootApplication注解
+
+Spring Boot 在启动时能够找到主类上的`@SpringBootApplication`注解，是因为它利用了 Java 的反射机制和类加载机制，结合 Spring 框架内部的一系列处理流程。
+
+当运行一个 Spring Boot 程序时，通常会调用主类中的`main`方法，这个方法会执行`SpringApplication.run()`，比如：
+
+
+
+```java
+@SpringBootApplication
+public class MyApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(MyApplication.class, args);
+    }
+}
+```
+
+`SpringApplication.run(Class<?> primarySource, String... args)`方法接收两个参数：第一个是主应用类（即包含`main`方法的类），第二个是命令行参数。`primarySource`参数提供了一个起点，Spring Boot 通过它来加载应用上下文。
+
+Spring Boot 利用 Java 反射机制来读取传递给`run`方法的类（`MyApplication.class`）。它会检查这个类上的注解，包括`@SpringBootApplication`。
+
+
+
+## Spring Boot默认的包扫描路径是什么
+
+Spring Boot 的默认包扫描路径是以启动类 `@SpringBootApplication` 注解所在的包为根目录的，即默认情况下，Spring Boot 会扫描启动类所在包及其子包下的所有组件。
+
+
+
+如果需要自定义包扫描路径，可以在`@SpringBootApplication`注解上添加`@ComponentScan`注解，指定要扫描的包路径。
+
+
+
+```java
+@SpringBootApplication
+@ComponentScan(basePackages = {"com.github.paicoding.forum"})
+public class QuickForumApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(QuickForumApplication.class, args);
+    }
+}
+```
+
+这种方式会覆盖默认的包扫描路径，只扫描`com.github.paicoding.forum`包及其子包下的所有组件。
+
+
+
+## Spring Boot和Spring MVC的区别
+
+Spring MVC 是基于 Spring 框架中的Web框架，提供了一种 Model-View-Controller（模型-视图-控制器）的开发模式。
+
+Spring Boot 旨在简化 Spring 应用的配置和部署过程，提供了大量的自动配置选项，以及运行时环境的内嵌 Web 服务器，这样就可以更快速地开发一个 SpringMVC 的 Web 项目。
+
+
+
+**Spring Boot 默认使用 Spring MVC 作为 Web 框架，提供自动配置，无需手动配置 DispatcherServlet。**
+
+
+
+## Spring Boot和Spring有什么区别
+
+Spring 是一个 Java 应用框架，提供 IOC（依赖注入）、AOP（面向切面编程）、事务管理、Spring MVC（Web 框架）等功能，需要大量的手动配置。
+
+
+
+Spring Boot 是 Spring 的扩展框架，提供 自动配置、内嵌 Web 服务器、简化依赖管理，让开发者能快速搭建 Spring 应用，无需繁琐的 XML 配置。
+
+
+
+# Spring Cloud
+
+## 对Spring Cloud了解多少
+
+Spring Cloud 是一个基于 Spring Boot，提供构建分布式系统和微服务架构的工具集。用于解决分布式系统中的一些常见问题，如配置管理、服务发现、负载均衡等等。
+
+
+
+
+
+## 微服务架构主要要解决哪些问题？
+
+- 服务很多，客户端怎么访问，如何提供对外网关?
+- 这么多服务，服务之间如何通信? HTTP 还是 RPC?
+- 这么多服务，如何治理? 服务的注册和发现。
+- 服务挂了怎么办？熔断机制。
+
+
+

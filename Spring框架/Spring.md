@@ -871,7 +871,8 @@ AOP 一般有 **5 种**环绕方式：
 - 后置通知 (@After)
 - 环绕通知 (@Around)
 
-![image-20250217124232935](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250217124232935.png)
+![image-20250217124232935](https://github.com/user-attachments/assets/856ce3ba-35d4-48b7-8c6f-c4beb778affb)
+
 
 ## Spring AOP发生在什么时候
 
@@ -1078,7 +1079,8 @@ public class AccountService {
 
 事务传播机制是指当一个事务方法调用另一个事务方法时，Spring 如何管理它们的事务关系。Spring 通过 `@Transactional(propagation = Propagation.XXX)` 来控制事务的传播方式。
 
-![image-20250218111009342](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250218111009342.png)
+![image-20250218111009342](https://github.com/user-attachments/assets/20d1baf8-c2b6-44e5-9add-0985c8bca452)
+
 
 Spring 的默认传播行为是 PROPAGATION_REQUIRED，即如果当前存在事务，则加入该事务；如果当前没有事务，则创建一个新的事务。
 
@@ -1276,7 +1278,7 @@ Spring Boot 的优点非常多，比如说：
 
 ## Spring Boot核心注解
 
-![image-20250218115451450](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250218115451450.png)
+![image-20250218115451450](https://github.com/user-attachments/assets/181a749e-9b39-4183-bf0b-be8315127dda)
 
 
 
@@ -1438,7 +1440,8 @@ Spring Boot 的启动由 SpringApplication 类负责：
 
 
 
-![image-20250218122736537](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250218122736537.png)
+![image-20250218122736537](https://github.com/user-attachments/assets/925dbb24-ef6b-4f92-b80b-a228afb4373a)
+
 
 
 

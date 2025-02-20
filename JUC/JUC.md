@@ -42,6 +42,10 @@
 
 ## 线程的共享内存
 
+每个线程有自己的工作内存，存放线程私有变量和从主内存拷贝的共享变量副本。
+
+
+
 Java中采取共享内存的方式实现线程之间的通信。
 
 线程 A 与线程 B 之间如要通信的话，必须要经历下面 2 个步骤：
@@ -83,7 +87,7 @@ Java中采取共享内存的方式实现线程之间的通信。
 
 `interrupt()`
 
-- 用于请求一个线程中断（设置中断标志为 `true`），并不强制停止线程的运行。
+- `interrupt()` 只是向线程发送一个 “中断请求”，但不会真正终止线程。线程可以自己决定如何处理这个请求，一般通过检查 `Thread.interrupted()` 或捕获 `InterruptedException`。
 
 `stop()`
 
@@ -107,7 +111,7 @@ Java中采取共享内存的方式实现线程之间的通信。
 ![三分恶面渣逆袭：Java线程状态变化](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-7.png)
 
 - NEW
-- RUNNABLE：包含操作系统层面的【可运行状态】、【运行状态】和【阻塞状态】
+- RUNNABLE：包含操作系统层面的【可运行状态】、【运行状态】
 - BLOCKED：如没抢到synchronized的锁
 - WAITING：join()、wait()，需要其他线程显式唤醒
 - TIMED_WAITING：wait(1000)、sleep(1000)
@@ -118,6 +122,20 @@ Java中采取共享内存的方式实现线程之间的通信。
 ## 什么是线程上下文切换
 
 **上下文切换：**CPU 资源的分配采用了时间片轮转也就是给每个线程分配一个时间片，线程在时间片内占用 CPU 执行任务。当线程使用完时间片后，就会处于就绪状态并让出 CPU 让其他线程占用
+
+
+
+当 CPU 需要从线程 A 切换到线程 B 时，会进行如下步骤：
+
+1. 保存线程 A 的上下文（Context）：
+   - 寄存器（Registers）（包括程序计数器 PC）
+   - 栈指针（Stack Pointer）
+   - 程序状态字（Program Status Word, PSW）
+   - CPU 缓存（部分可能失效）
+2. 加载线程 B 的上下文，恢复其之前的执行状态。
+3. CPU 重新执行线程 B。
+
+这个切换过程需要 操作系统（OS）内核 介入，涉及 内核态与用户态的转换，因此上下文切换是有开销的。
 
 
 
@@ -278,7 +296,7 @@ Synchronized 升级为重量级锁时，依赖于操作系统的互斥量（mute
 - 在偏向锁状态下，调用`hashCode()`方法会会撤销偏向锁，改为轻量级锁
 - 当有其它线程使用偏向锁对象时，会将偏向锁升级为轻量级锁
 
-- 调用wait / notify
+- 调用wait / notify，依赖重量级锁monitor中的Wait Set
 
   
 
@@ -616,6 +634,10 @@ Java 内存模型（JMM）规定：
 
 
 
+也是通过读写屏障实现的
+
+
+
 ## 什么是指令重排
 
 **1. 编译器优化**
@@ -666,7 +688,7 @@ as-if-serial 语义的意思是：不管怎么重排序（编译器和处理器�
 
 - 对volatile变量的写指令后会加入**写屏障**
   - 写屏障保证在该屏障之前，对所有变量的改动都同步到主存当中
-- 对volatiole变量的读指令前会加入**读屏障**
+- 对volatile变量的读指令前会加入**读屏障**
   - 读屏障保证在该屏障之后，对共享变量的读取加载的是主存中最新数据
 
 
@@ -717,7 +739,7 @@ public final class Singleton {
 ```java
 public final class Singleton {
     private Singleton(){}
-    private static Singleton INSTANCE = null;
+    private static volatile Singleton INSTANCE = null;
     
     public static Singleton getInstance() {
         if(INSTANCE == null){

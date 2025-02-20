@@ -769,6 +769,32 @@ ThreadPoolExecutor使用int的高3位来表示线程池状态，低29位表示�
 
 ![线程池状态切换图](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-78.png)
 
+可以通过反射获取线程池状态
+
+```java
+   // 通过反射获取线程池状态
+    private static String getState(ThreadPoolExecutor executor) {
+        try {
+            java.lang.reflect.Field field = ThreadPoolExecutor.class.getDeclaredField("ctl");
+            field.setAccessible(true);
+            int ctl = (Integer) field.get(executor);
+            int state = ctl >>> 29;
+            switch (state) {
+                case 0: return "RUNNING";
+                case 1: return "SHUTDOWN";
+                case 2: return "STOP";
+                case 3: return "TIDYING";
+                case 4: return "TERMINATED";
+                default: return "UNKNOWN";
+            }
+        } catch (Exception e) {
+            return "无法获取";
+        }
+    }
+```
+
+
+
 ## 线程池参数有哪些
 
 **corePoolSize**：核心线程数
@@ -836,7 +862,7 @@ public static ExecutorService newCachedThreadPool() {
 
   - 全部都是救急线程
 
-  - 救急线程可以无限创建
+  - **救急线程可以无限创建**
 
 - 队列采用了SynchronousQueue实现特点是，没有容量，没有线程来取是放不进去的
 
@@ -1112,6 +1138,20 @@ public class AfterExecuteExample extends ThreadPoolExecutor {
 
 
 
+## 为什么不推荐用Executors创建线程池
+
+因为使用Excecutors创建线程池默认的线程池参数不够灵活，其默认参数可能会导致资源耗尽，引发OOM或任务堆积
+
+**Executors.newFixedThreadPool(n)**
+
+- **默认无界队列**，可能导致任务堆积，内存溢出（OOM）
+
+
+
+**Executors.newCachedThreadPool()**
+
+- **最大线程数是 `Integer.MAX_VALUE`（2^31-1）**，高并发时可能无限创建线程，导致 CPU 负载过高或 内存溢出
+
 
 
 # 并发工具类
@@ -1200,6 +1240,40 @@ Exchanger（交换者）是一个用于线程间协作的工具类。Exchanger �
 
 
 
+```java
+import java.util.concurrent.Exchanger;
+
+public class ExchangerDemo {
+    public static void main(String[] args) {
+        Exchanger<String> exchanger = new Exchanger<>();
+
+        new Thread(() -> {
+            try {
+                String data = "数据 A";
+                System.out.println(Thread.currentThread().getName() + " 发送数据：" + data);
+                String received = exchanger.exchange(data);
+                System.out.println(Thread.currentThread().getName() + " 收到数据：" + received);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, "线程 1").start();
+
+        new Thread(() -> {
+            try {
+                String data = "数据 B";
+                System.out.println(Thread.currentThread().getName() + " 发送数据：" + data);
+                String received = exchanger.exchange(data);
+                System.out.println(Thread.currentThread().getName() + " 收到数据：" + received);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, "线程 2").start();
+    }
+}
+```
+
+
+
 ## CopyOnWriteArrayList的实现原理
 
 CopyOnWriteArrayList 是一个线程安全的 ArrayList，它遵循写时复制（Copy-On-Write）的原则，即在写操作时，会先复制一个新的数组，然后在新的数组上进行写操作，写完之后再将原数组引用指向新数组。
@@ -1207,6 +1281,7 @@ CopyOnWriteArrayList 是一个线程安全的 ArrayList，它遵循写时复制�
 ![CL0610：最终一致性](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/thread/CopyOnWriteArrayList-01.png)
 
 - 读写分离，在写操作上使用Synchronized加锁，读操作上不加锁
+  - 写操作 会 创建新副本 并 修改数据，但如果多个线程同时写入，可能会导致数据竞争。
 - 读操作弱一致性
 - **适用于“读多写少”的场景**，如果需要**实时一致性**，应该用 synchronized或 ConcurrentHashMap。
 
@@ -1242,6 +1317,8 @@ CopyOnWriteArrayList 是一个线程安全的 ArrayList，它遵循写时复制�
 
 
 
+
+
 ## Fork/Join框架与ThreadPoolExecutor的区别？
 主要区别在于任务调度机制。
 
@@ -1254,7 +1331,7 @@ CopyOnWriteArrayList 是一个线程安全的 ArrayList，它遵循写时复制�
 ## 什么是工作窃取算法？
 ![工作窃取](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-86.png)
 
-工作窃取算法允许空闲的线程从其他线程的任务队列末尾窃取任务执行，实现了更好的负载均衡，提高了线程利用率
+工作窃取算法允许空闲的线程从其他线程的任务队列末尾窃取任务执行，实现了更好的负载均衡，提高了CPU利用率
 
 
 

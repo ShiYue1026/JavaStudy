@@ -1,4 +1,5 @@
 # Java八股笔记整理
+- [高频](https://github.com/ShiYue1026/JavaStudy/blob/main/%E9%AB%98%E9%A2%91/%E9%AB%98%E9%A2%91.md)
 - [JUC并发编程](https://github.com/ShiYue1026/JavaStudy/blob/main/JUC/JUC.md)
 - [JVM](https://github.com/ShiYue1026/JavaStudy/blob/main/JVM/JVM.md)
 - [MySQL](https://github.com/ShiYue1026/JavaStudy/blob/main/MySQL/MySQL.md)
@@ -8,3 +9,4 @@
 - [操作系统](https://github.com/ShiYue1026/JavaStudy/blob/main/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F.md)
 - [Spring框架](https://github.com/ShiYue1026/JavaStudy/blob/main/Spring%E6%A1%86%E6%9E%B6/Spring.md)
 - [Java基础](https://github.com/ShiYue1026/JavaStudy/blob/main/java%E5%9F%BA%E7%A1%80/java%E5%9F%BA%E7%A1%80.md)
+- [MyBatis](https://github.com/ShiYue1026/JavaStudy/blob/main/MyBatis/MyBatis.md)

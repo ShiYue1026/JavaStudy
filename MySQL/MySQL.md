@@ -640,13 +640,42 @@ show profiles能够在做SQL优化时帮助我们了解时间都耗费到哪里�
 SET profiling = 1;
 ```
 
+```sql
++----------+------------+-----------------------------------------------------+
+| Query_ID | Duration   | Query                                               |
++----------+------------+-----------------------------------------------------+
+|        1 | 0.00214000 | SELECT COUNT(*) FROM employees                      |
+|        2 | 0.00341500 | SELECT * FROM employees WHERE department_id = 2     |
+|        3 | 0.00587100 | SELECT * FROM employees WHERE name LIKE 'A%'       |
++----------+------------+-----------------------------------------------------+
+```
+
 查看指定query_id的SQL语句各个阶段的耗时情况
 
 ```sql
 show profile for query query_id
 ```
 
+```sql
++----------------------+------------+
+| Status              | Duration   |
++----------------------+------------+
+| Starting            | 0.00007125 |
+| Checking permissions| 0.00001075 |
+| Opening tables      | 0.00005400 |
+| System lock         | 0.00000575 |
+| Table lock          | 0.00001275 |
+| Checking table      | 0.00001550 |
+| Querying            | 0.00567100 |
+| Sending data        | 0.00002575 |
+| End                 | 0.00000200 |
+| Query end           | 0.00000225 |
+| Closing tables      | 0.00000925 |
+| Freeing items       | 0.00000575 |
+| Cleaning up         | 0.00000250 |
++----------------------+------------+
 
+```
 
 
 

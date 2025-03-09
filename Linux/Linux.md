@@ -295,7 +295,7 @@ Linux 中的权限可以应用于三种类别的用户：
 
 
 
-![image-20250309123854422](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250309123854422.png)
+![image-20250309123854422](https://github.com/user-attachments/assets/9607164b-a7b9-4527-96bc-7d2cef7ab7a5)
 
 ## Linux下查找一个文件怎么做
 

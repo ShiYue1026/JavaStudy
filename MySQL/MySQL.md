@@ -1440,6 +1440,19 @@ MySQL通过事务、undo log、redo log来确保ACID
 
 
 
+## 为什么不推荐使用自增ID作为主键
+
+- 在分库分表的架构下，如果使用自增ID，每个分库的ID可能重复，在合并时会导致主键冲突。
+- 自增ID易被预测，存在安全风险
+
+
+
+## 为什么不推荐使用UUID作为主键
+
+UUID完全随机生成，无序，没有任何规律可言，当插入新记录时，这可能会导致索引分裂和磁盘碎片，并影响查询性能。
+
+
+
 ## 雪花算法了解吗
 
 ![image-20250205223554822](https://github.com/user-attachments/assets/0b16d09e-2b56-4d4d-b2d2-5c20e32c741a)
@@ -1449,6 +1462,37 @@ MySQL通过事务、undo log、redo log来确保ACID
 - 第二个部分：`41个bit`，表示时间戳，精确到毫秒，2^41/(1000_60_60_24_365)=69，大概可以使用 69 年。时间戳带有自增属性。
 - 第三个部分：`10个bit`，表示10位的机器标识，最多支持2^10=1024个节点。此部分也可拆分成5位datacenterId和5位workerId，datacenterId表示机房ID，workerId表示机器ID。
 - 第四部分：`12个bit`，表示序列号，同一毫秒时间戳时，通过这个递增的序列号来区分。即对于同一台机器而言，同一毫秒时间戳下，可以生成 2^12=4096 个不重复 id。
+
+
+
+## 雪花算法的时钟回拨问题怎么解决
+
+**方案1：等待回拨恢复**
+
+- 如果检测到时钟回拨（新时间戳 < 上次生成时的时间戳），则暂停ID生成，等待时钟追上之前的时间
+- 适合小范围回拨
+
+
+
+**方案2：增加序列号（补偿）**
+
+
+
+**方案3：时间戳不依赖系统时钟**
+
+时间戳不再依赖系统时钟（`System.currentTimeMillis()`），而是用 `AtomicLong` 递增 作为时间基准：
+
+```java
+private AtomicLong time = new AtomicLong(System.currentTimeMillis());
+
+public long nextTimestamp() {
+    return time.incrementAndGet(); // 使用自增时间戳
+}
+```
+
+即使服务器时钟回拨，ID 仍然是递增的，不会受影响。
+
+
 
 
 

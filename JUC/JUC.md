@@ -14,6 +14,34 @@
 
 - 实现Callable接口，重写`call()`方法，然后创建FutureTask对象，参数为Callable对象；然后创建Thread对象，参数为FutureTask对象（因为FutureTask继承了Runnable接口），调用`start()`方法启动线程
 
+```java
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+
+public class CallableExample {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+        // 创建 Callable 任务
+        Callable<Integer> task = () -> {
+            System.out.println(Thread.currentThread().getName() + " 执行任务...");
+            Thread.sleep(2000);
+            return 42; // 返回计算结果
+        };
+
+        // 用 FutureTask 包装 Callable
+        FutureTask<Integer> futureTask = new FutureTask<>(task);
+
+        // 创建线程并启动
+        Thread thread = new Thread(futureTask);
+        thread.start();
+
+        // 获取结果（阻塞等待任务完成）
+        Integer result = futureTask.get();
+        System.out.println("任务执行结果：" + result);
+    }
+}
+```
+
 
 
 ## 对线程安全的理解
@@ -634,7 +662,7 @@ Java 内存模型（JMM）规定：
 
 
 
-也是通过读写屏障实现的
+也是通过读写屏障实现的。**写入 `final` 变量的操作** 对所有其他线程 **Happens-Before** 变量的读操作。
 
 
 
@@ -1352,6 +1380,16 @@ CopyOnWriteArrayList 是一个线程安全的 ArrayList，它遵循写时复制�
 [Java面渣](https://javabetter.cn/sidebar/sanfene/javathread.html#)
 
 
+
+
+
+- What survey questions would you ask your users about your updated UI?
+  On a scale of 1-10, how easy is it to use the new UI?
+  How much time do you spend logging a meal compared to the previous version? (Less / Same / More)
+  Have you encountered any errors or confusing elements while using the new UI? 
+  How would you automatically log any usage behavior?
+  Using Qualtrics or implementing JavaScript. 
+- Defining some counters in the a'p'p backend
 
 
 

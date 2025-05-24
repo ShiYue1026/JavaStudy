@@ -334,6 +334,10 @@ System.out.println("Total price in cents: " + totalInCents);  // 输出597分
 
 
 
+## Java包里排序算法的底层实现
+
+
+
 # 面向对象
 
 ## 面向对象和面向过程的区别
@@ -463,11 +467,29 @@ public class PolymorphismExample {
 
 
 
+主要分为：
+
+（1）编译时多态：方法重载
+
+（2）运行时多态：方法重写
+
+
+
 ## 多态的实现原理是什么
 
 多态通过**动态绑定 + 虚方法表**实现，Java 使用虚方法表存储方法指针，方法调用时根据对象实际类型从虚方法表查找具体实现。
 
 ![截图来自博客园的小牛呼噜噜：虚拟方法表](https://cdn.tobebetterjavaer.com/stutymore/javase-20241126104207.png)
+
+
+
+## 什么时候不会使用虚方法表
+
+- `final` 方法（不能被重写，JVM 直接调用，不走 V-Table）
+
+- `static` 方法（属于类，而非实例，JVM 直接解析）
+
+- `private` 方法（只能在本类中使用，不会在子类 V-Table 中出现）
 
 
 
@@ -592,7 +614,7 @@ public class ThisConstructorExample {
 
 
 
-## Java支持多继承吗
+## Java支持多继承吗，为什么不支持
 
 Java 不支持多继承，一个类只能继承一个类，多继承会引发菱形继承问
 
@@ -687,15 +709,11 @@ class D extends B, C {
 
 ## static关键字了解吗
 
-static 关键字可以用来修饰变量、方法、代码块和内部类，以及导入包。
+static关键字修饰的东西属于类，不属于对象，用于共享变量、方法或代码块
 
-| 修饰对象 | 作用                                                         |
-| -------- | ------------------------------------------------------------ |
-| 变量     | 静态变量，类级别变量，所有实例共享同一份数据。               |
-| 方法     | 静态方法，类级别方法，与实例无关。                           |
-| 代码块   | 在类加载时初始化一些数据，只执行一次。                       |
-| 内部类   | 与外部类绑定但独立于外部类实例。                             |
-| 导入     | 可以直接访问静态成员，无需通过类名引用，简化代码书写，但会降低代码可读性。 |
+静态方法中不能访问非静态变量/方法
+
+静态变量存储在方法区（JVM的类元空间）
 
 
 
@@ -712,6 +730,12 @@ static 关键字可以用来修饰变量、方法、代码块和内部类，以�
   - 如果是引用类型的变量，在对其初始化之后就不能再让其指向另一个对象。但是引用指向的对象内容可以改变。
 
     ![三分恶面渣逆袭：final修饰变量](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javase-13.png)
+
+
+
+## 什么是Java中的常量
+
+Java 中的常量是用 `final` 定义、通常配合 `static` 使用的固定值变量，在程序运行中不能更改，属于类本身，可全局共享。
 
 
 
@@ -1061,6 +1085,18 @@ String 是不可变的，这意味着一旦一个 String 对象被创建，其�
 
 
 
+## 为什么String不能被继承
+
+```java
+public final class String implements java.io.Serializable, Comparable<String>, CharSequence {
+    // 内部实现
+}
+```
+
+`String` 对象一旦创建，就不能修改，`final` 确保其行为不会被子类改变。
+
+
+
 ## String的字符串拼接是如何实现的
 
 **1. 直接拼接**
@@ -1137,6 +1173,71 @@ public final class String
 
 - 如果当前字符串内容存在于字符串常量池，直接返回字符串常量池中的字符串
 - 否则，将此String对象添加到池中，并返回String对象的引用
+
+
+
+## Java中两个字符串+的原理
+
+**1. 如果两个字符串都是字面量**
+
+```java
+String s1 = "Hello " + "World";
+System.out.println(s1); // "Hello World"
+```
+
+Java编译器会在编译时进行常量合并，不会在运行时执行拼接
+
+
+
+**2. 运行时StringBuilder优化**
+
+```java
+String a = "Hello";
+String b = "World";
+String c = a + " " + b;
+```
+
+编译后等价于
+
+```java
+String c = new StringBuilder()
+              .append(a)
+              .append(" ")
+              .append(b)
+              .toString();
+```
+
+JVM 自动优化 `+` 为 `StringBuilder.append()`，避免创建过多 `String` 对象。
+
+
+
+**3. 在循环中 + 可能会导致性能问题**
+
+如果在循环中使用 `+` 进行拼接，由于 `String` 不可变，每次拼接都会创建新的 `String` 对象，导致 大量额外的内存分配。
+
+```java
+String result = "";
+for (int i = 0; i < 1000; i++) {
+    result += i;  // 每次都会创建新的 String
+}
+```
+
+
+
+## String的hashCode是怎么计算的
+
+```java
+public int hashCode() {
+    int h = 0;
+    int len = value.length;
+    for (int i = 0; i < len; i++) {
+        h = 31 * h + value[i];
+    }
+    return h;
+}
+```
+
+`value[i]` 是字符的 **Unicode 编码**，即 `char` 类型。
 
 
 
@@ -1482,8 +1583,6 @@ NIO 的魅力主要体现在网络编程中，服务器可以用一个线程处�
 
 ## 简单说一下AIO
 
-
-
 它引入了异步通道的概念，使得 I/O 操作可以异步进行。这意味着线程发起一个读写操作后不必等待其完成，可以立即进行其他任务，并且当读写操作真正完成时，线程会被异步地通知。
 
 ```java
@@ -1779,6 +1878,23 @@ System.out.println("fastTime: " + field.getLong(obj));
 ## 反射的原理是什么
 
 Java 程序的执行分为编译和运行两步，编译之后会生成字节码(.class)文件，JVM 进行类加载的时候，会加载字节码文件，将类型相关的所有信息加载进方法区，反射就是去获取这些信息，然后进行各种操作。
+
+
+
+## 哪些地方使用了反射
+
+**1. Spring框架**
+
+- Bean注入（IOC）：反射创建对象、设置属性
+- AOP切面增强：动态代理 + 反射调用原方法
+- 注解扫描：反射读取类、方法、字段上的注解
+
+
+
+**2. MyBatis框架**
+
+- 映射结果集到对象：根据字段名用反射调用setter方法
+- 动态 SQL 构建：根据实体类字段名反射获取值
 
 
 

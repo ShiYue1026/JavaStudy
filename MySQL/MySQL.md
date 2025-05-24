@@ -12,6 +12,8 @@
 
 
 
+
+
 ## MySQL性能差的原因有哪些
 
 - 全表扫描，
@@ -34,10 +36,12 @@
 **第二范式**
 
 - 每个非主键字段必须完全依赖于主键，而不能是部分依赖。
+  - 当一个表的主键是 复合主键（即由多个字段组成），但某个非主键字段只依赖于主键的一部分，而不是整个主键，这就是部分依赖，违反了第二范式（2NF）。
 
 **第三范式**
 
 - 非主键字段必须直接依赖于主键，而不能通过另一个非主键字段传递依赖。
+  - 如果一个非主键字段依赖于另一个非主键字段，而这个非主键字段又依赖于主键，那么这个字段就没有直接依赖于主键，而是间接依赖（传递依赖）。
 
 
 
@@ -51,8 +55,6 @@
 **2. 数据写入远少于读取的场景（以读为主）**
 
 - 例如 **电商系统的订单记录**，订单创建后不会频繁修改，但需要**快速查询**，可以适当冗余数据。
-
-
 
 
 
@@ -112,13 +114,56 @@
 
 **in**
 
+```sql
+SELECT name FROM employees 
+WHERE department_id IN (SELECT department_id FROM departments WHERE location = 'New York');
+```
+
 - 子查询先执行，返回完整数据集，主查询匹配
 - 子查询结果小（<1000 条）时更快
 
 **exisits**
 
+```sql
+SELECT name FROM employees e
+WHERE EXISTS (SELECT 1 FROM departments d WHERE d.department_id = e.department_id AND d.location = 'New York');
+```
+
 - 外层表逐行检查，子查询找到一条匹配就终止
 - 外层表大时更快（避免全表扫描）
+
+
+
+## SQL中的子查询是什么，可以用在什么场景
+
+子查询（Subquery） 是在 SQL 查询中嵌套的另一个查询，通常用于 筛选数据、计算值、检查存在性 等。
+
+
+
+**1. 筛选数据**（WHERE后）
+
+```sql
+SELECT name, salary FROM employees 
+WHERE salary > (SELECT MAX(salary) FROM employees WHERE department = 'Sales');
+```
+
+
+
+**2. 计算聚合后的值**（SELECT后）
+
+```sql
+SELECT name, salary, (SELECT AVG(salary) FROM employees) AS avg_salary 
+FROM employees;
+```
+
+
+
+**3. 检查存在性**（EXISTS后）
+
+```sql
+SELECT DISTINCT department FROM employees e 
+WHERE EXISTS (SELECT 1 FROM employees s WHERE s.department = e.department AND s.role = 'Sales');
+```
 
 
 
@@ -155,11 +200,11 @@
 
 **DDL**（Data Definition Language）
 
-- 用于定义和管理数据库结构（Schema），影响的是数据库对象（表、索引、视图等），DDL 语句会 自动提交，不可回滚。
+- 用于定义和管理数据库结构（Schema），影响的是数据库对象（表、索引、视图等），DDL 语句会 **自动提交，不可回滚**。
 
 **DML**（Data Manipulation Language）
 
-- 用于操作表中的数据（CRUD：增删改查），影响的是数据本身，DML 语句 不会自动提交，可以回滚（ROLLBACK）
+- 用于操作表中的数据（CRUD：增删改查），影响的是数据本身，DML 语句 **不会自动提交，可以回滚**（ROLLBACK）
 
 
 
@@ -187,6 +232,7 @@
 - count(*)包括了所有的列，相当于行数，在统计结果的时候，不会忽略列值为 NULL
 - count(1)包括了忽略所有列，用 1 代表代码行，在统计结果的时候，不会忽略列值为 NULL
 - count(列名)只包括列名那一列，在统计结果的时候，会忽略列值为空（这里的空不是只空字符串或者 0，而是表示 null）的计数，即某个字段值为 NULL 时，不统计。
+  - 因此，count(列名)需要检查每行的值，检查是否为NULL，可能需要回表查询
 
 
 
@@ -234,6 +280,56 @@ SELECT * FROM table_name LIMIT 2, 8;
 - 8：行数，表示从偏移量开始，返回 8 条记录。
 
 偏移量是从 0 开始的，即第一条记录的偏移量是 0；如果想从第 3 条记录开始，偏移量就应该是 2。
+
+
+
+## MySQL深度分页是什么
+
+深度分页的主要性能瓶颈在于 **OFFSET** 和 **LIMIT**。随着页数的增加，MySQL 必须跳过更多的记录，这会导致查询的性能急剧下降，因为 MySQL 需要扫描和跳过大量无用的行。
+
+例如，假设每页返回 100 条记录，当请求第 100 页数据时，MySQL 需要扫描并跳过前 9900 条记录，直到找到第 9901 条记录。这会导致查询速度极慢，尤其是当数据量非常大的时候。
+
+```mysql
+SELECT * FROM orders ORDER BY id LIMIT 1000000, 10;
+```
+
+- `OFFSET 1000000` 会扫描 & 丢弃前 100 万行，然后返回 10 行，性能极差！
+
+- 索引不能优化 `OFFSET`，导致 查询时间随 `OFFSET` 线性增长。
+
+
+
+**如何解决深度分页问题**
+
+1. 使用 `WHERE id > ?` 代替 `OFFSET`
+
+```sql
+SELECT * FROM orders WHERE id > (
+    SELECT id FROM orders ORDER BY id LIMIT 1000000, 1
+) ORDER BY id LIMIT 10;
+```
+
+
+
+2. 预查询id，再回表查询
+
+```mysql
+SELECT id FROM orders ORDER BY id LIMIT 1000000, 10;
+SELECT * FROM orders WHERE id IN (...);
+```
+
+
+
+3. 使用上一页的最后一条记录的标识符（如主键或唯一索引）来实现分页。这样，查询从上一页的最后一条记录开始，而不需要跳过前面的记录。
+
+```mysql
+SELECT * FROM table_name
+WHERE id > last_seen_id
+ORDER BY id ASC
+LIMIT 100;
+```
+
+
 
 
 
@@ -306,8 +402,6 @@ SELECT CAST('1' AS SIGNED INTEGER) + 1; -- 结果为 2
 
 SQL语法树解析过程通常包含**词法分析**、**语法分析**、**语义分析**
 
-
-
 ```mysql
 SELECT name, age FROM users WHERE age > 18;
 ```
@@ -327,6 +421,16 @@ name  age users  CONDITION
 - **根节点**：通常是 SQL 语句的主要操作，例如 SELECT、INSERT、UPDATE、DELETE 等。
 - **内部节点**：表示语句中的操作符、子查询、连接操作等。例如，WHERE 子句、JOIN 操作等。
 - **叶子节点**：表示具体的标识符、常量、列名、表名等。例如，users 表、id 列、常量 1 等
+
+
+
+## 内连接和外连接是什么
+
+**内连接**
+
+
+
+**外连接**
 
 
 
@@ -362,7 +466,7 @@ binlog 在服务层，负责记录 SQL 语句的变化。它记录了所有对�
 2. MySQL 服务器的连接器开始处理这个请求，跟客户端建立连接、获取权限、管理连接。
 3. 解析器对 SQL 语句进行解析，检查语句是否符合 SQL 语法规则，确保引用的数据库、表和列都是存在的，并处理 SQL 语句中的名称解析和权限验证。
 4. 优化器负责确定 SQL 语句的执行计划，这包括选择使用哪些索引，以及决定表之间的连接顺序等。
-5. 执行器会调用存储引擎的 API 来进行数据的读写。
+5. 执行器会**调用存储引擎的 API** 来进行数据的读写。
 6. MySQL 的存储引擎是插件式的，不同的存储引擎在细节上面有很大不同。例如，InnoDB 是支持事务的，而 MyISAM 是不支持的。之后，会将执行结果返回给客户端
 7. 客户端接收到查询结果，完成这次查询请求。
 
@@ -460,7 +564,7 @@ MyISAM是MySQL早期的默认存储引擎
 
 **MyISAM**:
 
-- 如果应用是以读操作和插入操作为主，并且对事物的完整性、并发性要求不是很高，那么可以选择MyISAM（日志、电商中的足迹、评论数据）
+- 如果应用是以读操作和插入操作为主，并且对事物的完整性、并发性要求不是很高，那么可以选择MyISAM（日志、电商中的足迹、评论数据）（没有事务不需要记录日志、表级锁加锁开销更低）
 - 被mongoDB替代
 
 **MEMORY**:
@@ -594,11 +698,74 @@ binlog 是一种物理日志，会在磁盘上记录下数据库的所有修改�
 
 
 
+![image-20250314001640141](C:/Users/shiyu/AppData/Roaming/Typora/typora-user-images/image-20250314001640141.png)
+
+
+
 ## 什么是WAL
 
 WAL（Write-Ahead Logging）的思想是**先写日志，再写数据**，即在对数据进行任何修改之前，必须先将修改的日志记录（redo log）持久化到磁盘。
 
 通过先写日志，确保系统在发生故障时可以通过重做日志恢复数据。
+
+
+
+## MySQL怎么排查死锁
+
+MySQL 会将最近一次的死锁信息记录在 InnoDB 引擎的状态中：
+
+```sql
+SHOW ENGINE INNODB STATUS\G
+```
+
+在输出中，找到类似于以下的部分：
+
+```sql
+LATEST DETECTED DEADLOCK
+------------------------
+*** (1) TRANSACTION:
+...
+*** (2) TRANSACTION:
+...
+```
+
+这个部分详细描述了：
+
+- 哪两个事务互相等待
+- 哪些 SQL 引发了锁冲突
+- 哪个事务被 InnoDB 主动回滚
+
+
+
+## 什么情况下会产生死锁
+
+多个事务在同时等待对方释放锁，导致互相卡住、无法继续执行
+
+**1. 多个事务操作顺序不一致**
+
+事务A：
+
+```sql
+BEGIN;
+UPDATE table SET col = 1 WHERE id = 1;
+UPDATE table SET col = 2 WHERE id = 2;
+```
+
+事务B：
+
+```sql
+BEGIN;
+UPDATE table SET col = 3 WHERE id = 2;
+UPDATE table SET col = 4 WHERE id = 1;
+```
+
+**2. 显式加锁的 SELECT**
+
+**3. 并发插入相同唯一值**
+
+**4. 范围查询导致间隙锁**
+
+**5. 大事务锁范围广**
 
 
 
@@ -864,6 +1031,28 @@ explain select * from students where id =9
 
 
 
+## 如何评估数据库表中索引的合理性
+
+**1. 索引是否提高了查询性能**
+
+- 使用`EXPLAIN`语句进行分析
+
+**2. 是否存在重复 / 冗余的索引**
+
+**3. 是否正确匹配查询**
+
+- 索引需要遵循最左前缀匹配，否则可能不会被使用
+
+**4. 是否需要覆盖索引**
+
+- 覆盖索引允许数据库直接从索引获取查询结果，避免回表。
+
+**5. 是否影响数据写入性能**
+
+
+
+
+
 ## 索引的数据结构
 
 **二叉搜索树**：
@@ -976,6 +1165,22 @@ explain select * from students where id =9
   
 
  **回表查询**：先根据非聚簇索引查找到主键的值，再根据聚簇索引拿到这行的值
+
+
+
+## 全文索引和Elasticsearch的倒排索引的区别
+
+Mysql全文索引：
+
+- 简单分词：英文空格分词 / 中文需要配置
+- 高级能力：不支持
+
+
+
+Elasticsearch：
+
+- 支持多种分词器（如 ik、jieba、standard）
+- 排序、评分、聚合、过滤、高亮
 
 
 
@@ -1194,8 +1399,6 @@ MySQL 默认行锁类型就是临键锁。当使用唯一性索引，等值查�
 
 
 
-
-
 # 事务
 
 ## 什么是事务
@@ -1259,7 +1462,7 @@ MySQL通过事务、undo log、redo log来确保ACID
 
 
 
-## 并发事务问题是什么
+## 脏读、不可重复读和幻读是什么
 
 **1. 脏读**
 

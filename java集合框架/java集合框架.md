@@ -235,7 +235,7 @@ JDK8中HashMap的数据结构是**数组+链表+红黑树**
 - **黑路同**：任一节点到叶所有路径黑色节点数量相同
 - 插入节点默认为红色，只可能违反根叶黑或者不红红
 
-这些性质保证了红黑树任一节点左右子树的高度差不会超过两倍
+这些性质保证了红黑树**任一节点左右子树的高度差不会超过两倍**
 
 
 
@@ -449,7 +449,7 @@ static final int hash(Object key) {
 
 比如一开始HashMap的数组大小为16，通过`hash & (n-1)`来计算下标，
 
-但问题是hash & (24−1) 的结果实际上是取 hash 的低 4 位，那么一个大的哈希值，也只取最后 4 位，不就等于哈希值的高位都丢弃了吗
+但问题是hash & (2^4−1) 的结果实际上是取 hash 的低 4 位，那么一个大的哈希值，也只取最后 4 位，不就等于哈希值的高位都丢弃了吗
 
 改进后的处理既考虑了高位的信息，又没有完全忽视低位原本的信息，尝试达到一个平衡状态。
 
@@ -661,7 +661,150 @@ static final int hash(Object key) {
 
 ## 你能自己设计实现一个HashMap吗
 
-略
+```java
+package caogao;
+
+import java.util.Objects;
+
+public class HashMap {
+    public static void main(String[] args) {
+        MyHashMap<Integer, Integer> hashMap = new MyHashMap<>();
+        hashMap.put(1, 1);
+        hashMap.put(2, 2);
+        hashMap.put(3, 3);
+
+        System.out.println(hashMap.get(1));
+        System.out.println(hashMap.get(2));
+        System.out.println(hashMap.get(3));
+    }
+}
+
+class Node<K, V> {
+    final K key;
+    V value;
+    Node<K, V> next;
+
+    public Node(K key, V value){
+        this.key = key;
+        this.value = value;
+        this.next = null;
+    }
+}
+
+class MyHashMap<K, V>{
+    private int capacity = 16;
+    private Node<K, V>[] table;
+    private int size = 0;
+
+    public MyHashMap(){
+        table = new Node[capacity];
+    }
+
+    public MyHashMap(int capacity){
+        this.capacity = capacity;
+        table = new Node[capacity];
+    }
+
+    // 计算哈希值
+    private int hash(K key){
+        if(key == null){
+            return 0;
+        }
+        int h = key.hashCode();
+        return (h ^ (h >>> 16)) & (capacity - 1);
+    }
+
+    // 插入数据
+    public void put(K key, V value){
+        int idx = hash(key);
+        Node<K, V> newNode = new Node<>(key, value);
+
+        if(table[idx] == null){  // table为空，直接插入
+            table[idx] = newNode;
+            size++;
+        } else{ // 哈希冲突，拉链法
+            Node<K, V> current = table[idx];
+            while(current != null){
+                if(Objects.equals(current.key, key)){
+                    current.value = value;
+                    return;
+                }
+                if(current.next == null){
+                    current.next = newNode;
+                    size++;
+                    break;
+                }
+                current = current.next;
+            }
+        }
+
+        if(size >= capacity * 0.75){
+            resize();
+        }
+    }
+
+    // 获取数据
+    public V get(K key){
+        int index = hash(key);
+        Node<K, V> current = table[index];
+
+        while(current != null){
+            if(Objects.equals(current.key, key)){
+                return current.value;
+            }
+            current = current.next;
+        }
+        return null;
+    }
+
+    // 删除数据
+    public void remove(K key){
+        int index = hash(key);
+        Node<K, V> current = table[index];
+        Node<K, V> prev = null;
+
+        while(current != null){
+            if(Objects.equals(current.key, key)){
+                if(prev == null){
+                    table[index] = current.next;
+                } else{
+                    prev.next = current.next;
+                }
+                size--;
+                return;
+            }
+            prev = current;
+            current = current.next;
+        }
+    }
+
+    private void resize() {
+        capacity = capacity * 2;
+        Node<K, V>[] newTable = new Node[capacity];
+        for (Node<K, V> node : table) {
+            while (node != null) {
+                int newIndex = hash(node.key);
+                Node<K, V> next = node.next;
+
+                if (newTable[newIndex] == null) {
+                    newTable[newIndex] = node;
+                    node.next = null;
+                } else {
+                    Node<K, V> temp = newTable[newIndex];
+                    while (temp.next != null) {
+                        temp = temp.next;
+                    }
+                    temp.next = node;
+                    node.next = null;
+                }
+
+                node = next;
+            }
+        }
+        table = newTable;
+    }
+}
+```
 
 
 
@@ -705,6 +848,18 @@ HashMap 是无序的，根据 hash 值随机插入。如果想使用有序的 Ma
 
 
 
+## HashMap是否可以存空值
+
+HashMap允许null作为key，但只能有一个
+
+HashMap允许null作为value，没有数量限制
+
+
+
+Hashtable 不允许nullkey或 null` `value，否则抛 NullPointerException
+
+
+
 ## LinkedHashMap怎么实现有序的
 
 LinkedHashMap 维护了 **数组 + 双向链表**，每个Node有头尾节点，同时 LinkedHashMap 节点 Entry 内部除了继承 HashMap 的 Node 属性，还有 before 和 after 用于标识前置节点和后置节点。
@@ -736,6 +891,8 @@ TreeMap 的底层是**红黑树**，红黑树是一种自平衡的二叉查找�
 - 在没有发生哈希冲突的情况下，HashMap 的查找效率是 `O(1)`。适用于查找操作比较频繁的场景。
 
 - TreeMap 的查找效率是 `O(logn)`。并且保证了元素的顺序，因此适用于需要大量范围查找或者有序遍历的场景。
+
+
 
 
 

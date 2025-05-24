@@ -361,6 +361,7 @@ ApplicationContext 会在启动时预先创建和配置所有的单例 bean，�
 - 都是容器，因为都提供了`getBean`方法
 - 父子关系，ApplicationContext继承了BeanFactory
 - ApplicationContext直接面向用户提供了很多功能，如扫描配置信息、事件监听、注册Bean的后置处理器等等。BeanFactory只有创建Bean一个功能
+- BeanFactory中的Bean是懒加载，ApplicationContext的Bean的立即初始化
 
 
 
@@ -1105,7 +1106,7 @@ public void childMethod() {
 
 在 Spring 中，**只有通过 Spring 容器的 AOP 代理调用的公开方法（public method）上的`@Transactional`注解才会生效**。
 
-如果在 protected、private 方法上使用`@Transactional`，这些事务注解将不会生效，原因：Spring 默认使用基于 JDK 的动态代理（当接口存在时）或基于 CGLIB 的代理（当只有类时）来实现事务。这两种代理机制都只能代理公开的方法。
+如果在 protected、private 方法上使用`@Transactional`，这些事务注解将不会生效，原因：Spring 默认使用基于 JDK 的动态代理（当接口存在时）或基于 CGLIB 的代理（当只有类时）来实现事务。**这两种代理机制都只能代理公开的方法。**
 
 
 

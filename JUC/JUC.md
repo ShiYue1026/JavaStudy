@@ -163,7 +163,7 @@ Java中采取共享内存的方式实现线程之间的通信。
 2. 加载线程 B 的上下文，恢复其之前的执行状态。
 3. CPU 重新执行线程 B。
 
-这个切换过程需要 操作系统（OS）内核 介入，涉及 内核态与用户态的转换，因此上下文切换是有开销的。
+这个切换过程需要 操作系统（OS）内核 介入，涉及内核态与用户态的转换，因此上下文切换是有开销的。
 
 
 
@@ -348,6 +348,24 @@ Synchronized 升级为重量级锁时，依赖于操作系统的互斥量（mute
 
 
 
+## 轻量级锁加锁流程
+
+### T1 尝试加锁（第一次进入同步块）
+
+1. JVM 在 `T1` 的 **栈帧中创建 Lock Record（锁记录）**
+2. 把对象头中的 **Mark Word 拷贝到 Lock Record 中**
+3. **尝试用 CAS** 将对象的 Mark Word 替换为 **指向 Lock Record 的指针**
+4. 如果 CAS 成功 → 加锁成功（T1 获得锁，对象处于轻量级锁状态）
+5. 如果 CAS 失败 → 表示有竞争，进入锁膨胀流程（见下）
+
+###  T2 也尝试加锁（产生竞争）
+
+- T2 检测到对象头的 Mark Word 不再是无锁状态，也不是偏向自己
+- CAS 失败 → 进入“**自旋**”阶段尝试等待 T1 释放锁
+- 如果自旋失败（例如尝试次数太多） → 锁升级为**重量级锁**
+
+
+
 ## ReentrantLock是什么
 
 **可中断**（Synchronized不行）
@@ -469,6 +487,8 @@ class Account {
 
 - 可以考虑改用锁来保证操作的原子性
 - 可以考虑合并多个变量，将多个变量封装成一个对象，通过 AtomicReference 来保证原子性。
+
+
 
 ## 原子操作类有哪些
 
@@ -951,9 +971,89 @@ public static ExecutorService newScheduledThreadExecutor() {
 
   - 有界的先进先出的阻塞队列，底层是一个数组，适合固定大小的线程池
 
+  ```java
+  public class ArrayBlockingQueue<E> implements BlockingQueue<E> {
+      final Object[] items;              // 存储元素的数组
+      int takeIndex;                     // 下一次 take 的索引
+      int putIndex;                      // 下一次 put 的索引
+      int count;                         // 当前元素数量
+  
+      final ReentrantLock lock;          // 一把独占锁
+      final Condition notEmpty;          // 队列不为空条件
+      final Condition notFull;           // 队列不为满条件
+  }
+  ```
+
+  ```java
+  public void put(E e) throws InterruptedException {
+      final ReentrantLock lock = this.lock;
+      lock.lockInterruptibly();         // 获取锁
+      try {
+          while (count == items.length)
+              notFull.await();         // 队列满，等待
+  
+          enqueue(e);                  // 入队，更新 putIndex、count
+          notEmpty.signal();           // 通知等待 take 的线程
+      } finally {
+          lock.unlock();               // 释放锁
+      }
+  }
+  ```
+
+  
+
 - LinkedBlockingQueue
 
   - 底层数据结构是链表，如果不指定大小，默认大小是 Integer.MAX_VALUE，相当于一个无界队列。
+
+  ```java
+  public class LinkedBlockingQueue<E> implements BlockingQueue<E> {
+      static class Node<E> {
+          E item;
+          Node<E> next;
+      }
+  
+      final int capacity;                  // 容量限制
+      final AtomicInteger count = new AtomicInteger(); // 当前元素个数
+  
+      transient Node<E> head;
+      transient Node<E> last;
+  
+      final ReentrantLock putLock = new ReentrantLock();
+      final Condition notFull = putLock.newCondition();
+  
+      final ReentrantLock takeLock = new ReentrantLock();
+      final Condition notEmpty = takeLock.newCondition();
+  }
+  ```
+
+  ```java
+  public void put(E e) throws InterruptedException {
+      if (e == null) throw new NullPointerException();
+      int c = -1;
+      Node<E> node = new Node<>(e);
+      final ReentrantLock putLock = this.putLock;
+      final AtomicInteger count = this.count;
+  
+      putLock.lockInterruptibly();
+      try {
+          while (count.get() == capacity)
+              notFull.await();             // 等待空位
+  
+          enqueue(node);                   // 链表添加节点
+          c = count.getAndIncrement();
+          if (c + 1 < capacity)
+              notFull.signal();            // 唤醒其他 put
+      } finally {
+          putLock.unlock();
+      }
+  
+      if (c == 0)
+          signalNotEmpty();               // 首次入队，唤醒 take
+  }
+  ```
+
+  
 
 - DelayQueue
 
@@ -967,7 +1067,17 @@ public static ExecutorService newScheduledThreadExecutor() {
 
   - 实际上它不是一个真正的队列，因为没有容量。每个插入操作(`put()`)必须等待另一个线程的移除(`get()`)操作，同样任何一个移除操作都必须等待另一个线程的插入操作。
 
-    
+
+
+
+## ArrayBlockingQueue和LinkedBlockingQueue哪个性能高
+
+LinkedBlockingQueue性能高
+
+`ArrayBlockingQueue` 使用数组和一把锁，结构简单但性能有限；
+ `LinkedBlockingQueue` 使用链表和读写分离锁，吞吐量更高，适合高并发任务队列。
+
+
 
 ## 线程池的shutdown()和shutdownNow()区别
 
@@ -1016,6 +1126,76 @@ public static ExecutorService newScheduledThreadExecutor() {
        // 捕获异常
    }
    ```
+
+
+
+## 两个线程池之间要进行任务的同步，怎么做
+
+**1. 使用Future.get()阻塞等待第一个线程池执行完毕**
+
+```java
+import java.util.concurrent.*;
+
+public class FutureSyncExample {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+        ExecutorService poolA = Executors.newFixedThreadPool(2);
+        ExecutorService poolB = Executors.newFixedThreadPool(2);
+
+        Future<String> futureA = poolA.submit(() -> {
+            Thread.sleep(1000);
+            return "Task A Done";
+        });
+
+        // 等待 poolA 任务完成后再执行 poolB 任务
+        String resultA = futureA.get(); // 阻塞等待
+        System.out.println(resultA);
+
+        Future<String> futureB = poolB.submit(() -> "Task B Done");
+        System.out.println(futureB.get());
+
+        poolA.shutdown();
+        poolB.shutdown();
+    }
+}
+```
+
+
+
+**2. 使用CountDownLatch**
+
+```java
+import java.util.concurrent.*;
+
+public class LatchExample {
+    public static void main(String[] args) throws InterruptedException {
+        ExecutorService poolA = Executors.newFixedThreadPool(2);
+        ExecutorService poolB = Executors.newFixedThreadPool(2);
+
+        CountDownLatch latch = new CountDownLatch(2);
+
+        poolA.execute(() -> {
+            try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
+            System.out.println("Task A Done");
+            latch.countDown();
+        });
+
+        poolA.execute(() -> {
+            try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
+            System.out.println("Task A2 Done");
+            latch.countDown();
+        });
+
+        // 等待 poolA 执行完毕
+        latch.await();
+
+        // 开始执行 poolB
+        poolB.execute(() -> System.out.println("Task B Started"));
+
+        poolA.shutdown();
+        poolB.shutdown();
+    }
+}
+```
 
 
 
@@ -1157,6 +1337,132 @@ public class AfterExecuteExample extends ThreadPoolExecutor {
 
 
 ## 如何自己设计一个线程池
+
+```java
+package caogao;
+
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.HashSet;
+import java.util.Set;
+
+public class MyThreadPool {
+}
+
+/**
+ * 自定义线程池（支持 corePoolSize、maximumPoolSize 和 keepAliveTime）
+ */
+class CustomThreadPool {
+    private final int corePoolSize; // 核心线程数
+    private final int maximumPoolSize; // 最大线程数
+    private final long keepAliveTime; // 最大线程的存活时间（毫秒）
+    private final BlockingQueue<Runnable> taskQueue; // 任务队列
+    private final Set<Worker> workers = new HashSet<>(); // 存活的线程集合
+    private final AtomicBoolean isShutdown = new AtomicBoolean(false); // 线程池状态
+
+    public CustomThreadPool(int corePoolSize, int maximumPoolSize, long keepAliveTime) {
+        this.corePoolSize = corePoolSize;
+        this.maximumPoolSize = maximumPoolSize;
+        this.keepAliveTime = keepAliveTime;
+        this.taskQueue = new LinkedBlockingQueue<>();
+    }
+
+    /**
+     * 提交任务
+     */
+    public synchronized void submit(Runnable task) {
+        if (isShutdown.get()) {
+            throw new IllegalStateException("线程池已关闭，无法提交任务");
+        }
+
+        // 1. 线程数小于 corePoolSize，创建核心线程
+        if (workers.size() < corePoolSize) {
+            addWorker(task, true);
+        }
+        // 2. 任务队列未满，加入队列
+        else if (!taskQueue.offer(task)) {
+            // 3. 任务队列满了，尝试创建额外线程（不超过 maximumPoolSize）
+            if (workers.size() < maximumPoolSize) {
+                addWorker(task, false);
+            } else {
+                throw new RuntimeException("任务队列已满，无法处理更多任务！");
+            }
+        }
+    }
+
+    /**
+     * 添加新线程到线程池
+     */
+    private void addWorker(Runnable firstTask, boolean isCore) {
+        Worker worker = new Worker(firstTask, isCore);
+        workers.add(worker);
+        worker.start();
+    }
+
+    /**
+     * 关闭线程池（等待任务完成）
+     */
+    public synchronized void shutdown() {
+        isShutdown.set(true);
+    }
+
+    /**
+     * 立即关闭线程池（清空任务队列）
+     */
+    public synchronized void shutdownNow() {
+        isShutdown.set(true);
+        taskQueue.clear();
+        for (Worker worker : workers) {
+            worker.interrupt();
+        }
+    }
+
+    /**
+     * 线程池中的 Worker 线程
+     */
+    private class Worker extends Thread {
+        private Runnable initialTask;
+        private final boolean isCore; // 是否为核心线程
+
+        public Worker(Runnable task, boolean isCore) {
+            this.initialTask = task;
+            this.isCore = isCore;
+        }
+
+        @Override
+        public void run() {
+            try {
+                // 1. 先执行提交时的任务
+                if (initialTask != null) {
+                    initialTask.run();
+                    initialTask = null;
+                }
+
+                // 2. 不断从任务队列获取任务执行
+                while (!isShutdown.get()) {
+                    Runnable task = isCore ? taskQueue.take() : taskQueue.poll(keepAliveTime, TimeUnit.MILLISECONDS);
+                    if (task != null) {
+                        task.run();
+                    } else {
+                        break; // 非核心线程在超时时销毁
+                    }
+                }
+            } catch (InterruptedException e) {
+                // 线程终止
+            } finally {
+                synchronized (CustomThreadPool.this) {
+                    workers.remove(this); // 线程退出时移除
+                }
+            }
+        }
+    }
+}
+
+```
+
+
 
 
 
@@ -1380,16 +1686,6 @@ CopyOnWriteArrayList 是一个线程安全的 ArrayList，它遵循写时复制�
 [Java面渣](https://javabetter.cn/sidebar/sanfene/javathread.html#)
 
 
-
-
-
-- What survey questions would you ask your users about your updated UI?
-  On a scale of 1-10, how easy is it to use the new UI?
-  How much time do you spend logging a meal compared to the previous version? (Less / Same / More)
-  Have you encountered any errors or confusing elements while using the new UI? 
-  How would you automatically log any usage behavior?
-  Using Qualtrics or implementing JavaScript. 
-- Defining some counters in the a'p'p backend
 
 
 

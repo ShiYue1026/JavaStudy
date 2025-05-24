@@ -262,7 +262,7 @@ Java HotSpot JVM 默认使用 **瘦指针（Thin Pointer）**，即：
   - 包含了对象自身的运行时数据，如哈希码（HashCode）、垃圾回收分代年龄、锁状态标志、线程持有的锁、偏向线程 ID 等信息。
   - 在 64 位操作系统下占 **8 个字节**，32 位操作系统下占 4 个字节。
 
-- 类型指针
+- 类型指针（Klass Pointer）
   - 指向对象所属类的元数据的指针，JVM 通过这个指针来确定对象的类。在开启了压缩指针的情况下，这个指针可以被压缩。
   - 在开启指针压缩的情况下占 4 个字节，否则占 8 个字节。（在 JDK 8 中，压缩指针默认是开启的，以减少 64 位应用中对象引用的内存占用）
 - 数组长度
@@ -407,8 +407,6 @@ Java HotSpot JVM 默认使用 **瘦指针（Thin Pointer）**，即：
 ![二哥的Java进阶之路：栈帧](https://cdn.tobebetterjavaer.com/stutymore/stack-frame-20231224090450.png)
 
 当一个方法被调用时，JVM 会在栈中分配一个栈帧，用于存储该方法的执行信息。如果方法调用嵌套太深，栈帧不断压入栈中，最终会导致栈空间耗尽，抛出 StackOverflowError。
-
-
 
 
 
@@ -623,6 +621,7 @@ Java HotSpot JVM 默认使用 **瘦指针（Thin Pointer）**，即：
   - 清理From
   - 交换幸存区From和幸存区To
   - 当幸存区空间不足时，存活对象会直接进入老年代
+    - 动态年龄判断，如果年龄1+年龄2+ ··· +年龄n的对象的大小超过了当前Survivor区的内存的一半，则年龄超过n的对象进入老年代。
 
 **老年代**：存放长时间使用的对象，垃圾回收很久发生一次
 
@@ -882,12 +881,6 @@ CMS使用**标记清除**算法进行垃圾收集，分四大步：
 
   ![haikuotiankongdong：top 命令结果](https://cdn.tobebetterjavaer.com/stutymore/jvm-20240527111502.png)
 
-- 接着，使用 jstack 命令查看对应进程的线程堆栈信息。
-
-  ```shell
-  jstack -l <pid> > thread-dump.txt
-  ```
-
 - 然后再使用 top 命令查看进程中线程的占用情况，找到占用 CPU 较高的线程 ID。
 
   ```shell
@@ -895,6 +888,12 @@ CMS使用**标记清除**算法进行垃圾收集，分四大步：
   ```
 
   ![haikuotiankongdong：Java 进程中的线程情况](https://cdn.tobebetterjavaer.com/stutymore/jvm-20240527111356.png)
+
+- 接着，使用 jstack 命令查看对应进程的线程堆栈信息。
+
+  ```shell
+  jstack -l <pid> > thread-dump.txt
+  ```
 
 - 最后，根据堆栈信息定位到具体的业务方法，查看是否有死循环、频繁的垃圾回收（GC）、资源竞争（如锁竞争）导致的上下文频繁切换等问题。
 
@@ -1107,7 +1106,14 @@ JDBC案例
 
 - 但 JIT 的出现打破了这种刻板印象，JVM 会将热点代码（即运行频率高的代码）编译后放入 CodeCache，当下次执行再遇到这段代码时，会从 CodeCache 中直接读取机器码，然后执行。这大大提升了 Java 的执行效率。
 
-  
+
+
+
+## 热部署jvm是怎么知道哪个文件发生变化的
+
+
+
+
 
 # 参考资料
 

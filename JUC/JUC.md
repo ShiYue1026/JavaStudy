@@ -124,6 +124,12 @@ Java中采取共享内存的方式实现线程之间的通信。
 
 
 
+## 什么时候会产生InterruptedException
+
+`InterruptedException` 会在线程处于阻塞状态（sleep、wait、join），并且被其他线程调用了 `interrupt()` 方法时抛出。
+
+
+
 ## 线程状态
 
 **操作系统层面（5种状态）**
@@ -242,11 +248,58 @@ public class CompletableFutureExample {
 
 # 锁
 
+## Synchronized使用方法
+
+synchronized关键字的使用方式主要有下面三种：
+
+**修饰实例方法**
+
+给当前对象实例加锁，进入同步代码块前要获取当前对象实例的锁。
+
+```java
+synchronized void method() {
+    //业务代码
+}
+```
+
+**修饰静态方法**
+
+给当前类加锁，会作用于类的所有对象实例，进入同步代码块前要获得当前class的锁。
+
+```java
+synchronized static void method() {
+    //业务代码
+}
+```
+
+注意：
+
+静态 `synchronized` 方法和非静态 `synchronized` 方法之间的调用互斥么？
+
+不互斥！如果一个线程 A 调用一个实例对象的非静态 `synchronized` 方法，而线程 B 需要调用这个实例对象所属类的静态 `synchronized` 方法，是允许的，**不会发生互斥现象**，因为访问静态 `synchronized` 方法占用的锁是当前类的锁，而访问非静态 `synchronized` 方法占用的锁是当前实例对象锁。
+
+
+
+**修饰代码块**
+
+- `synchronized(object)` 表示进入同步代码库前要获得给定对象的锁。
+- `synchronized(类.class)` 表示进入同步代码前要获得给定 Class 的锁
+
+```java
+synchronized(this) {
+    //业务代码
+}
+```
+
+
+
 ## Synchronized锁住的是什么
 
 synchronized是**基于Monitor实现**的。
 
 实例对象结构里有对象头，对象头里面有一块结构叫 Mark Word，Mark Word 指针指向了**Monitor**。
+
+（在 重量级锁状态下，对象头中的 Mark Word 会被替换为指向 **Monitor**（互斥量）的指针，这个 **Monitor** 是 JVM 中用于管理线程竞争的内部结构。）
 
 ![Java Montior机制](https://cdn.tobebetterjavaer.com/tobebetterjavaer/images/sidebar/sanfene/javathread-33.png)
 
@@ -321,7 +374,7 @@ Synchronized 升级为重量级锁时，依赖于操作系统的互斥量（mute
 
 **偏向锁撤销**
 
-- 在偏向锁状态下，调用`hashCode()`方法会会撤销偏向锁，改为轻量级锁
+- 在偏向锁状态下，调用`hashCode()`方法会撤销偏向锁，改为轻量级锁
 - 当有其它线程使用偏向锁对象时，会将偏向锁升级为轻量级锁
 
 - 调用wait / notify，依赖重量级锁monitor中的Wait Set
@@ -366,6 +419,44 @@ Synchronized 升级为重量级锁时，依赖于操作系统的互斥量（mute
 
 
 
+**具体例子：**
+
+假设对象O的原始Mark Word是：
+
+```bash
+0x0000000000000001  // 无锁状态
+```
+
+当前线程的Lock Record地址为
+
+```
+0x7fff12345678  // 位于栈帧中
+```
+
+然后执行CAS
+
+```java
+CAS(obj.markWord, expected = 0x0000000000000001, new = 0x7fff12345678)
+```
+
+
+
+##  Synchronized的偏向锁为什么被废弃了
+
+在JDK15中，偏向锁被默认关闭（仍然可以使用 `-XX:+UseBiasedLocking`启用偏向锁），在JDK18中，偏向锁已经被彻底废弃（无法通过命令行打开）。
+
+在官方声明中，主要原因有两个方面：
+
+**1. 性能收益不明显**
+
+
+
+
+
+**2. JVM内部代码维护成本太高**
+
+
+
 ## ReentrantLock是什么
 
 **可中断**（Synchronized不行）
@@ -378,20 +469,30 @@ Synchronized 升级为重量级锁时，依赖于操作系统的互斥量（mute
 
 **可以设置超时时间**（Synchronized不行）
 
-	`lock.tryLock(1, TimeUnit.SECONDS)`
-	
-	返回值是boolean类型，获取锁成功为true
+```java
+lock.tryLock(1, TimeUnit.SECONDS)
+
+返回值是boolean类型，获取锁成功为true
+```
 
 **可以设置公平锁**（Synchronized不行）
 
+```java
+ReentrantLock lock = new ReentrantLock(true); // true = 公平锁
+```
+
 **支持多个条件变量**（Synchronized不行）
 
-	Condition A = ReentrantLock.newCondition();
-	
-	// await和signal必须在同步块内执行
-	A.await();
-	
-	A.signal();
+```java
+Condition A = ReentrantLock.newCondition();
+
+// await和signal必须在同步块内执行
+A.await();
+
+A.signal();
+```
+
+
 
 **与synchronized一样，都支持可重入**
 
@@ -421,6 +522,33 @@ CAS 是乐观锁，线程执行的时候不会加锁，它会假设此时没有�
 
 
 
+**例子**
+
+```java
+do {
+    int oldValue = x;             // 读取当前值
+    int newValue = oldValue + 1;  // 计算新值
+} while (!CAS(&x, oldValue, newValue));  // 如果失败就重试
+```
+
+如果线程 A 在 CAS 时发现 `x` 仍然等于自己读到的 `oldValue` → ✅ 替换成功；
+
+如果线程 B 先一步修改了 `x`，线程 A 在 CAS 比较时发现值不同 → ❌ 替换失败 → 重新读取 & 重试；
+
+**整个过程不需要加锁**，但可以确保**只有一个线程的更新会生效**，其他线程必须等它完成后重试。
+
+
+
+## CAS为什么需要原子性
+
+因为：
+
+- 即使多个线程**同时尝试修改同一个变量**，只有**一个线程 CAS 成功**；
+- 其他线程会发现变量已经被修改，**CAS 失败、重试或放弃**；
+- 这就实现了**无锁并发控制**。
+
+
+
 ## CAS怎么保证数据原子性
 
 为了保证CAS的原子性，CPU 提供了两种实现方式
@@ -433,6 +561,43 @@ CAS 是乐观锁，线程执行的时候不会加锁，它会假设此时没有�
 
 - 当多个 CPU 操作同一块内存地址时，如果该内存地址已经被缓存到某个 CPU 的缓存中，缓存锁定机制会锁定该缓存行，防止其他 CPU 对这块内存进行修改。
 - MESI协议
+
+
+
+## 什么是MESI协议
+
+基于总线嗅探机制实现了事务串形化，也用状态机机制降低了总线带宽压力，这个协议就是 MESI 协议，这个协议就做到了 CPU 缓存一致性。
+
+
+
+MESI 协议其实是 4 个状态单词的开头字母缩写，分别是：
+
+- *Modified*，已修改
+- *Exclusive*，独占
+- *Shared*，共享
+- *Invalidated*，已失效
+
+「已修改」状态就是我们前面提到的脏标记，代表该 Cache Block 上的数据已经被更新过，但是还没有写到内存里。而「已失效」状态，表示的是这个 Cache Block 里的数据已经失效了，不可以读取该状态的数据。
+
+「独占」和「共享」状态都代表 Cache Block 里的数据是干净的，也就是说，这个时候 Cache Block 里的数据和内存里面的数据是一致性的。
+
+「独占」和「共享」的差别在于，独占状态的时候，数据只存储在一个 CPU 核心的 Cache 里，而其他 CPU 核心的 Cache 没有该数据。这个时候，如果要向独占的 Cache 写数据，就可以直接自由地写入，而不需要通知其他 CPU 核心，因为只有你这有这个数据，就不存在缓存一致性的问题了，于是就可以随便操作该数据。
+
+另外，在「独占」状态下的数据，如果有其他核心从内存读取了相同的数据到各自的 Cache ，那么这个时候，独占状态下的数据就会变成共享状态。
+
+那么，「共享」状态代表着相同的数据在多个 CPU 核心的 Cache 里都有，所以当我们要更新 Cache 里面的数据的时候，不能直接修改，而是要先向所有的其他 CPU 核心广播一个请求，要求先把其他核心的 Cache 中对应的 Cache Line 标记为「无效」状态，然后再更新当前 Cache 里面的数据。
+
+<img src="https://mmbiz.qpic.cn/mmbiz_png/J0g14CUwaZf0RnQxwibdcyFOTw0NvInPP3P2XZDHKy7EzWzfnOUugqByGVarxSnst6y78DkSmNHksLMlcd2Vlpg/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1" alt="图片" style="zoom:50%;" />
+
+我们举个具体的例子来看看这四个状态的转换：
+
+1. 当 A 号 CPU 核心从内存读取变量 i 的值，数据被缓存在 A 号 CPU 核心自己的 Cache 里面，此时其他 CPU 核心的 Cache 没有缓存该数据，于是标记 Cache Line 状态为「独占」，此时其 Cache 中的数据与内存是一致的；
+2. 然后 B 号 CPU 核心也从内存读取了变量 i 的值，此时会发送消息给其他 CPU 核心，由于 A 号 CPU 核心已经缓存了该数据，所以会把数据返回给 B 号 CPU 核心。在这个时候， A 和 B 核心缓存了相同的数据，Cache Line 的状态就会变成「共享」，并且其 Cache 中的数据与内存也是一致的；
+3. 当 A 号 CPU 核心要修改 Cache 中 i 变量的值，发现数据对应的 Cache Line 的状态是共享状态，则要向所有的其他 CPU 核心广播一个请求，要求先把其他核心的 Cache 中对应的 Cache Line 标记为「无效」状态，然后 A 号 CPU 核心才更新 Cache 里面的数据，同时标记 Cache Line 为「已修改」状态，此时 Cache 中的数据就与内存不一致了。
+4. 如果 A 号 CPU 核心「继续」修改 Cache 中 i 变量的值，由于此时的 Cache Line 是「已修改」状态，因此不需要给其他 CPU 核心发送消息，直接更新数据即可。
+5. 如果 A 号 CPU 核心的 Cache 里的 i 变量对应的  Cache Line 要被「替换」，发现  Cache Line 状态是「已修改」状态，就会在替换前先把数据同步到内存。
+
+
 
 
 
